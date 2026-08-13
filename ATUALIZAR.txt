@@ -1,0 +1,34 @@
+Gasto Esperto — versão 3
+========================
+
+NOVIDADES DESTA VERSÃO
+  - Transferência agora aceita nome digitado: "João da padaria", "Maria",
+    ou o nome de uma conta sua. Sugere quem você já usou antes.
+  - Pix enviado para outra pessoa passa a contar como gasto do mês.
+    Transferência entre contas suas continua fora — o dinheiro é seu.
+
+DAS VERSÕES ANTERIORES
+  - Forma de pagamento: Pix, dinheiro, débito, crédito, boleto,
+    transferência e vale/benefício
+  - 40 bancos brasileiros com selo colorido
+  - Troca de usuário explícita na barra superior
+
+COMO ATUALIZAR
+==============
+
+1. Abra github.com/juliobatista04/Gasto-inteligente
+2. "Add file" > "Upload files"
+3. Arraste os 5 arquivos da pasta "site" por cima dos antigos
+4. Escreva "Versão 3" > "Commit changes"
+
+Em 1 a 2 minutos está no ar. Quem tem o app instalado recebe a faixa
+"Nova versão disponível" sozinho. Os dados cadastrados continuam
+intactos — a atualização migra a base sem apagar nada.
+
+POR GIT
+=======
+
+  git clone gasto-esperto.bundle gasto-esperto
+  cd gasto-esperto
+  git remote set-url origin https://github.com/juliobatista04/Gasto-inteligente
+  git push -u origin claude/wallet-lamp-project-mpg10o
