@@ -1,0 +1,62 @@
+Colocar o Gasto Esperto no ar — 5 passos, sem instalar nada
+===========================================================
+
+Você vai arrastar estes arquivos para o GitHub pelo navegador mesmo.
+
+PASSO 1
+  Abra: https://github.com/juliobatista04/Comtrolador-de-gastos
+  Clique em "uploading an existing file"
+  (se o repositório já tiver arquivos: botão "Add file" > "Upload files")
+
+PASSO 2
+  Arraste TODOS os arquivos desta pasta para a área de upload:
+    index.html
+    manifest.webmanifest
+    sw.js
+    icon.svg
+    gasto-esperto.html
+
+  (o LEIA-ME.txt não precisa ir, mas não atrapalha)
+
+PASSO 3
+  Escreva uma mensagem qualquer, ex.: "Primeira versão"
+  Clique em "Commit changes"
+
+PASSO 4
+  Vá em Settings (engrenagem no topo do repositório) > Pages
+  Em "Source", escolha: Deploy from a branch
+  Em "Branch", escolha: main   e a pasta:  / (root)
+  Clique em Save
+
+PASSO 5
+  Espere de 1 a 2 minutos e abra:
+
+    https://juliobatista04.github.io/Comtrolador-de-gastos/
+
+  Pronto. Link público, sem login, funciona em qualquer aparelho.
+
+
+PARA QUE SERVE CADA ARQUIVO
+---------------------------
+  index.html            o app (é ele que abre no link acima)
+  manifest.webmanifest  faz o Android/iPhone reconhecer como aplicativo
+  sw.js                 faz funcionar offline e se atualizar sozinho
+  icon.svg              a logo (carteira com lâmpada)
+  gasto-esperto.html    cópia avulsa, para baixar e usar sem internet
+                        fica em .../Comtrolador-de-gastos/gasto-esperto.html
+
+Os três primeiros precisam ficar JUNTOS, na mesma pasta. Se faltar o
+sw.js, o app ainda abre — só perde o modo offline e a atualização
+automática.
+
+
+INSTALAR NO CELULAR (depois que o link estiver no ar)
+-----------------------------------------------------
+  Android/Chrome: abra o link > menu (tres pontinhos) > Instalar aplicativo
+  iPhone/Safari:  abra o link > Compartilhar > Adicionar a Tela de Inicio
+
+
+ATUALIZAR NO FUTURO
+-------------------
+  Suba um index.html novo por cima, do mesmo jeito. Quem já tem o app
+  instalado recebe o aviso "Nova versao disponivel" sozinho.
