@@ -181,7 +181,8 @@ img { max-width: 100%; }
 .wrap { flex-wrap: wrap; }
 .grow { flex: 1; min-width: 0; }
 .gap-4 { gap: 4px; } .gap-6 { gap: 6px; } .gap-8 { gap: 8px; }
-.gap-12 { gap: 12px; } .gap-16 { gap: 16px; } .gap-20 { gap: 20px; }
+.gap-10 { gap: 10px; } .gap-12 { gap: 12px; } .gap-14 { gap: 14px; }
+.gap-16 { gap: 16px; } .gap-18 { gap: 18px; } .gap-20 { gap: 20px; }
 .mt-4{margin-top:4px}.mt-8{margin-top:8px}.mt-12{margin-top:12px}.mt-16{margin-top:16px}.mt-20{margin-top:20px}.mt-24{margin-top:24px}
 .mb-4{margin-bottom:4px}.mb-8{margin-bottom:8px}.mb-12{margin-bottom:12px}.mb-16{margin-bottom:16px}.mb-20{margin-bottom:20px}
 .f-11{font-size:11px}.f-12{font-size:12px}.f-13{font-size:13px}.f-14{font-size:14px}.f-15{font-size:15px}
@@ -667,6 +668,9 @@ img { max-width: 100%; }
 /* ---------- seletor de cor ---------- */
 .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 9px; }
 .swatch {
+  /* o item da grade é o <div> em volta, não o botão: sem width o botão
+     encolhe até o conteúdo (vazio) e vira um quadrado de 4px */
+  width: 100%;
   aspect-ratio: 1; border-radius: var(--r-md);
   border: 2px solid transparent; position: relative;
   transition: transform .12s, border-color .15s;
@@ -922,7 +926,7 @@ const APP = {
   name: "Gasto Esperto",
   tagline: "seu dinheiro com ideia boa",
   version: "1.2.0",
-  build: "10b11898dc81",
+  build: "1632b7259b04",
   ns: "gastoesperto",
 };
 
@@ -5807,6 +5811,30 @@ function pageSettings() {
       </div>
     </div>
 
+    <section class="card mb-16">
+      <div class="row-between wrap gap-12">
+        <div class="row gap-12" style="min-width:0">
+          <span class="kpi-icon" style="background:var(--accent-soft);color:var(--accent);width:38px;height:38px">${icon("refresh", 19)}</span>
+          <div style="min-width:0">
+            <div class="f-14 w-700">Versão do aplicativo</div>
+            <div class="f-12 muted mt-4">
+              ${esc(APP.version)} · build <code style="letter-spacing:.04em">${esc(APP.build)}</code>
+            </div>
+          </div>
+        </div>
+        <div class="row gap-8 wrap">
+          <button class="btn btn-primary" data-action="check-update">${icon("refresh", 15)} Procurar atualização</button>
+          <button class="btn" data-action="force-update">${icon("zap", 15)} Forçar</button>
+        </div>
+      </div>
+      <div class="f-11 faint mt-12" id="swStatus"></div>
+      <div class="f-11 muted mt-8" style="line-height:1.55">
+        <b>Procurar</b> verifica se há versão nova e avisa.
+        <b>Forçar</b> apaga o cache do app e recarrega do servidor — use quando o
+        navegador insistir na versão antiga. Seus lançamentos não são afetados.
+      </div>
+    </section>
+
     <div class="grid grid-main">
       <div class="col gap-16">
         ${sectionCard("Aparência",
@@ -5930,28 +5958,10 @@ function pageSettings() {
               <b>${esc(APP.name)}</b> versão ${esc(APP.version)}<br>
               Funciona offline, instala como aplicativo e guarda tudo no seu aparelho.
             </div>
-            <div class="card card-pad-sm row-between" style="background:var(--surface-2)">
-              <span class="eyebrow">Build carregado</span>
-              <code class="f-12 w-700" style="letter-spacing:.04em">${esc(APP.build)}</code>
-            </div>
             <div class="row gap-8 wrap">
-              <button class="btn btn-sm" data-action="check-update">${icon("refresh", 14)} Procurar atualização</button>
               <button class="btn btn-sm" data-action="install">${icon("download", 14)} Instalar no aparelho</button>
               <button class="btn btn-sm" data-action="share">${icon("share", 14)} Compartilhar</button>
             </div>
-            <div class="f-11 faint" id="swStatus"></div>
-            <details>
-              <summary class="f-12 w-600 muted" style="cursor:pointer;padding:4px 0">O app não atualizou?</summary>
-              <div class="col gap-10 mt-12 f-12 muted" style="line-height:1.6">
-                <p>Compare o código acima com o da versão publicada. Se estiverem
-                diferentes, o navegador guardou uma cópia antiga.</p>
-                <button class="btn btn-sm btn-danger" data-action="force-update">
-                  ${icon("refresh", 14)} Forçar atualização agora
-                </button>
-                <p class="f-11 faint">Limpa o cache do app e recarrega. Seus lançamentos não são afetados —
-                eles ficam em outro lugar do navegador.</p>
-              </div>
-            </details>
           </div>`)}
       </div>
     </div>`;
@@ -6653,6 +6663,14 @@ function openMoreMenu() {
         </div>
       </div>`).join("")}
     <div class="divider" style="margin:0"></div>
+    <button class="user-card" data-action="check-update">
+      <span class="avatar-icon" style="background:var(--accent-soft);color:var(--accent)">${icon("refresh", 18)}</span>
+      <span class="grow" style="min-width:0">
+        <span class="list-title" style="display:block">Buscar atualização</span>
+        <span class="list-meta">versão ${esc(APP.version)} · build ${esc(APP.build)}</span>
+      </span>
+      <span class="faint">${icon("chevronRight", 16)}</span>
+    </button>
     <button class="user-card" data-action="switch-user">
       <span class="avatar" style="background:${alpha(state.user.color || PALETTE[0], 0.18)};color:${state.user.color || "var(--accent)"}">${esc(state.user.avatar || initialsOf(state.user.name))}</span>
       <span class="grow" style="min-width:0">
@@ -6665,6 +6683,7 @@ function openMoreMenu() {
   const modal = openModal({ title: "Todas as seções", iconName: "grid", body, footer: false, size: "sm" });
   delegate(body, "click", "[data-nav]", (event, node) => { modal.close(); go(node.dataset.nav); });
   delegate(body, "click", "[data-action='switch-user']", () => { modal.close(); logout(); });
+  delegate(body, "click", "[data-action='check-update']", () => { modal.close(); checkForUpdate(true); });
 }
 
 /* --------------------------------------------------------------------------
@@ -6749,6 +6768,8 @@ function bindShellActions(root) {
       })),
       ...(others.length ? ["-"] : []),
       { label: others.length ? "Ver todos os perfis" : "Trocar de usuário", icon: "logout", onClick: () => logout() },
+      "-",
+      { label: "Buscar atualização", icon: "refresh", badge: APP.build.slice(0, 6), onClick: () => checkForUpdate(true) },
     ]);
   });
 
@@ -6929,7 +6950,7 @@ async function checkForUpdate(verbose = false) {
       showUpdateBanner(swRegistration);
       if (verbose) toast("Nova versão encontrada!", "ok");
     } else if (verbose) {
-      toast("Você já está na versão mais recente.", "info");
+      toast(`Você já está na versão mais recente (build ${APP.build}).`, "info", 5000);
     }
     if (status) status.textContent = `Última verificação: agora · versão ${APP.version}`;
   } catch {

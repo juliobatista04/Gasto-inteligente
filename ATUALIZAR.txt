@@ -1,15 +1,21 @@
-Gasto Esperto — versão 1.3.0 (build 10b11898dc81)
+Gasto Esperto — versão 1.3.0 (build 1632b7259b04)
 ===========================================
 
-CORRIGIDO NESTA VERSÃO
-  - No celular, cinco páginas estavam inacessíveis, entre elas
-    "Cartões e contas". A barra inferior agora termina em "Mais",
-    que abre a lista completa das dez seções.
-  - Cadastro de cartão e vínculo com a conta que paga a fatura agora
-    alcançáveis pelo telefone.
-  - Seletores de categoria, conta e cartão ganharam "+ Criar...":
-    dá para cadastrar sem sair do lançamento, e o item novo já
-    volta selecionado.
+ONDE FICA A ATUALIZAÇÃO AGORA
+  1. Configurações — primeiro cartão da tela, "Versão do aplicativo"
+  2. Menu do perfil (avatar na barra de cima) — "Buscar atualização"
+  3. Celular: aba "Mais" — "Buscar atualização"
+
+  "Procurar" avisa se há versão nova.
+  "Forçar" apaga o cache e recarrega do servidor, para quando o
+  navegador insistir na versão antiga. Não afeta seus lançamentos.
+
+TAMBÉM CORRIGIDO
+  - Os 12 quadrados de cor do tema mediam 4x4 pixels; agora têm
+    tamanho de toque de verdade
+  - Espaçamento das seções em Configurações
+  - No celular, as 10 páginas voltaram a ser alcançáveis pela aba "Mais"
+  - "+ Criar..." nos seletores de categoria, conta e cartão
 
 COMO ATUALIZAR
 ==============
@@ -19,12 +25,10 @@ COMO ATUALIZAR
 4. Commit changes
 5. Espere o check verde, abra com Ctrl+Shift+R
 
-CONFERIR SE PEGOU
-=================
-No rodapé da tela de entrada deve aparecer:
+DEPOIS DESTA, NUNCA MAIS NA MÃO
+===============================
+A versão que está publicada aí ainda é anterior à correção da
+atualização automática — por isso esta precisa ser puxada manualmente.
+Da próxima publicação em diante o app avisa sozinho.
 
-    build 10b11898dc81
-
-No celular, a barra de baixo deve mostrar:
-
-    Painel | Lançar | Cartões | Orçamento | Mais
+CONFERIR: no rodapé da tela de entrada deve aparecer build 1632b7259b04
