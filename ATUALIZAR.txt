@@ -1,43 +1,30 @@
-Gasto Esperto — versão 1.2.0 (build 59035aa4683f)
+Gasto Esperto — versão 1.3.0 (build 10b11898dc81)
 ===========================================
 
-IMPORTANTE: esta versão corrige a atualização automática
---------------------------------------------------------
-As versões anteriores nunca avisavam que existia versão nova — era um
-defeito no meu código. A partir desta, o app detecta sozinho e mostra a
-faixa "Nova versão disponível".
-
-NOVIDADES ACUMULADAS
-  - Transferência aceita nome digitado ("João da padaria"), com sugestões
-  - Pix enviado para outra pessoa conta como gasto; entre contas suas, não
-  - Forma de pagamento: Pix, dinheiro, débito, crédito, boleto,
-    transferência e vale/benefício
-  - 40 bancos brasileiros com selo colorido
-  - Troca de usuário explícita na barra superior
-  - Identificador do build visível na tela de entrada e nas configurações
-  - Botão "Forçar atualização" em Configurações > Sobre o app
+CORRIGIDO NESTA VERSÃO
+  - No celular, cinco páginas estavam inacessíveis, entre elas
+    "Cartões e contas". A barra inferior agora termina em "Mais",
+    que abre a lista completa das dez seções.
+  - Cadastro de cartão e vínculo com a conta que paga a fatura agora
+    alcançáveis pelo telefone.
+  - Seletores de categoria, conta e cartão ganharam "+ Criar...":
+    dá para cadastrar sem sair do lançamento, e o item novo já
+    volta selecionado.
 
 COMO ATUALIZAR
 ==============
-1. Abra github.com/juliobatista04/Gasto-inteligente
+1. github.com/juliobatista04/Gasto-inteligente
 2. "Add file" > "Upload files"
 3. Arraste os 5 arquivos da pasta "site" por cima dos antigos
 4. Commit changes
-5. Espere o check verde e abra o site com Ctrl+Shift+R
+5. Espere o check verde, abra com Ctrl+Shift+R
 
-COMO CONFERIR SE FUNCIONOU
-==========================
-Na tela de entrada, no rodapé, deve aparecer:
+CONFERIR SE PEGOU
+=================
+No rodapé da tela de entrada deve aparecer:
 
-    Versão 1.2.0 · build 59035aa4683f · funciona offline
+    build 10b11898dc81
 
-Se aparecer outro código, o navegador ainda está com a cópia antiga.
-Entre no app e vá em Configurações > Sobre o app > "O app não atualizou?"
-> "Forçar atualização agora".
+No celular, a barra de baixo deve mostrar:
 
-SE VOCÊ JÁ INSTALOU O APP NO CELULAR
-====================================
-Esta atualização precisa ser puxada uma última vez na mão, porque a
-versão instalada aí ainda tem o defeito. Feche o app, abra o site pelo
-navegador com Ctrl+Shift+R (ou aba anônima) e reinstale. Da próxima vez
-em diante ele se atualiza sozinho.
+    Painel | Lançar | Cartões | Orçamento | Mais
