@@ -8,7 +8,11 @@
      (mensagem SKIP_WAITING enviada pela faixa "Nova versão disponível").
    ========================================================================== */
 
-const VERSION = "ge-v1.0.0";
+// Substituído no build pelo hash do conteúdo. Precisa mudar a cada
+// publicação: o navegador só reinstala o service worker quando este
+// arquivo muda byte a byte — com uma constante fixa, nenhuma versão nova
+// era detectada e a faixa "Nova versão disponível" nunca aparecia.
+const VERSION = "59035aa4683f";
 const CACHE = `gasto-esperto-${VERSION}`;
 const PRECACHE = ["./", "./index.html", "./manifest.webmanifest"];
 

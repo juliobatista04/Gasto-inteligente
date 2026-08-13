@@ -1,34 +1,43 @@
-Gasto Esperto — versão 3
-========================
+Gasto Esperto — versão 1.2.0 (build 59035aa4683f)
+===========================================
 
-NOVIDADES DESTA VERSÃO
-  - Transferência agora aceita nome digitado: "João da padaria", "Maria",
-    ou o nome de uma conta sua. Sugere quem você já usou antes.
-  - Pix enviado para outra pessoa passa a contar como gasto do mês.
-    Transferência entre contas suas continua fora — o dinheiro é seu.
+IMPORTANTE: esta versão corrige a atualização automática
+--------------------------------------------------------
+As versões anteriores nunca avisavam que existia versão nova — era um
+defeito no meu código. A partir desta, o app detecta sozinho e mostra a
+faixa "Nova versão disponível".
 
-DAS VERSÕES ANTERIORES
+NOVIDADES ACUMULADAS
+  - Transferência aceita nome digitado ("João da padaria"), com sugestões
+  - Pix enviado para outra pessoa conta como gasto; entre contas suas, não
   - Forma de pagamento: Pix, dinheiro, débito, crédito, boleto,
     transferência e vale/benefício
   - 40 bancos brasileiros com selo colorido
   - Troca de usuário explícita na barra superior
+  - Identificador do build visível na tela de entrada e nas configurações
+  - Botão "Forçar atualização" em Configurações > Sobre o app
 
 COMO ATUALIZAR
 ==============
-
 1. Abra github.com/juliobatista04/Gasto-inteligente
 2. "Add file" > "Upload files"
 3. Arraste os 5 arquivos da pasta "site" por cima dos antigos
-4. Escreva "Versão 3" > "Commit changes"
+4. Commit changes
+5. Espere o check verde e abra o site com Ctrl+Shift+R
 
-Em 1 a 2 minutos está no ar. Quem tem o app instalado recebe a faixa
-"Nova versão disponível" sozinho. Os dados cadastrados continuam
-intactos — a atualização migra a base sem apagar nada.
+COMO CONFERIR SE FUNCIONOU
+==========================
+Na tela de entrada, no rodapé, deve aparecer:
 
-POR GIT
-=======
+    Versão 1.2.0 · build 59035aa4683f · funciona offline
 
-  git clone gasto-esperto.bundle gasto-esperto
-  cd gasto-esperto
-  git remote set-url origin https://github.com/juliobatista04/Gasto-inteligente
-  git push -u origin claude/wallet-lamp-project-mpg10o
+Se aparecer outro código, o navegador ainda está com a cópia antiga.
+Entre no app e vá em Configurações > Sobre o app > "O app não atualizou?"
+> "Forçar atualização agora".
+
+SE VOCÊ JÁ INSTALOU O APP NO CELULAR
+====================================
+Esta atualização precisa ser puxada uma última vez na mão, porque a
+versão instalada aí ainda tem o defeito. Feche o app, abra o site pelo
+navegador com Ctrl+Shift+R (ou aba anônima) e reinstale. Da próxima vez
+em diante ele se atualiza sozinho.

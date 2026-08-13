@@ -800,6 +800,68 @@ input[type="range"] { height: 22px; }
 input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(var(--cal-invert, 0)); opacity: .6; cursor: pointer; }
 [data-theme="dark"] { --cal-invert: 1; }
 
+
+/* ---------- selo de banco ---------- */
+.bank-logo {
+  display: inline-grid; place-items: center; flex: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14), var(--shadow-sm);
+  overflow: hidden;
+}
+
+/* ---------- seletor de banco ---------- */
+.bank-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 7px; max-height: 236px; overflow-y: auto; padding: 3px;
+}
+.bank-opt {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 9px 5px; border-radius: var(--r-md);
+  border: 1.5px solid transparent; background: var(--surface-2);
+  transition: border-color .15s, transform .1s, background .15s;
+}
+.bank-opt:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.bank-opt[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.bank-opt-name {
+  font-size: 10px; font-weight: 600; color: var(--muted); text-align: center;
+  line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.bank-opt[aria-pressed="true"] .bank-opt-name { color: var(--accent); }
+
+/* ---------- seletor de forma de pagamento ---------- */
+.method-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(94px, 1fr)); gap: 7px; }
+.method-opt {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px 8px; border-radius: var(--r-md);
+  border: 1.5px solid var(--border); background: var(--surface-2);
+  font-size: 12px; font-weight: 600; color: var(--muted);
+  transition: all .15s;
+}
+.method-opt:hover { border-color: var(--m); color: var(--text); }
+.method-opt[aria-pressed="true"] {
+  border-color: var(--m); color: var(--m);
+  background: color-mix(in srgb, var(--m) 13%, transparent);
+}
+.method-opt svg { flex: none; }
+
+/* etiqueta compacta nas listas */
+.method-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 6px; border-radius: var(--r-full);
+  font-size: 10px; font-weight: 700;
+}
+
+/* ---------- cartão de perfil no topo ---------- */
+.user-button {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 10px 4px 4px; border-radius: var(--r-full);
+  border: 1px solid var(--border); background: var(--surface);
+  transition: border-color .15s, background .15s;
+}
+.user-button:hover { border-color: var(--accent); background: var(--surface-2); }
+.user-button-name { font-size: 12.5px; font-weight: 700; max-width: 130px; }
+@media (max-width: 700px) { .user-button-name { display: none; } .user-button { padding: 4px; } }
+
 </style>
 </head>
 <body>
@@ -844,7 +906,8 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(var(--cal
 const APP = {
   name: "Gasto Esperto",
   tagline: "seu dinheiro com ideia boa",
-  version: "1.0.0",
+  version: "1.2.0",
+  build: "59035aa4683f",
   ns: "gastoesperto",
 };
 
@@ -1358,6 +1421,10 @@ const ICON_PATHS = {
   menu: '<path d="M3.5 7h17M3.5 12h17M3.5 17h17"/>',
   external: '<path d="M14 4h6v6"/><path d="M20 4 11 13"/><path d="M18.5 14.5V19a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19V7A1.5 1.5 0 0 1 5 5.5h4.5"/>',
   print: '<path d="M6.5 9V3.5h11V9"/><rect x="3.5" y="9" width="17" height="7.5" rx="2"/><path d="M6.5 14h11v6.5h-11V14Z"/>',
+  pix: '<path d="M12 2.9 8.9 6a3.9 3.9 0 0 1-2.8 1.2h-.6L3 9.7a3.3 3.3 0 0 0 0 4.6l2.5 2.5h.6A3.9 3.9 0 0 1 8.9 18l3.1 3.1L15.1 18a3.9 3.9 0 0 1 2.8-1.2h.6l2.5-2.5a3.3 3.3 0 0 0 0-4.6l-2.5-2.5h-.6A3.9 3.9 0 0 1 15.1 6L12 2.9Z"/><path d="m9.4 12 2.6-2.6 2.6 2.6-2.6 2.6L9.4 12Z"/>',
+  barcode: '<path d="M3.5 5.5v13M6.5 5.5v13M9.5 5.5v13M13 5.5v13M16.5 5.5v13M20.5 5.5v13"/>',
+  cash: '<rect x="2.5" y="6" width="19" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.7"/><path d="M6 9.8v4.4M18 9.8v4.4"/>',
+  receipt: '<path d="M5 3.5h14v17l-2.3-1.6-2.3 1.6-2.4-1.6-2.4 1.6L7.3 19 5 20.5v-17Z"/><path d="M8.5 8.5h7M8.5 12.5h7"/>',
 };
 
 /**
@@ -1427,6 +1494,108 @@ const alpha = (hex, a) => {
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16));
   return `rgba(${r}, ${g}, ${b}, ${a})`;
 };
+
+/* --------------------------------------------------------------------------
+   BANCOS BRASILEIROS
+   Não usamos os logotipos oficiais: são marcas registradas e um arquivo
+   externo quebraria o funcionamento offline. Cada banco recebe um selo
+   desenhado aqui, com a cor da marca e o monograma — reconhecível de
+   relance e leve o bastante para caber no app inteiro.
+   -------------------------------------------------------------------------- */
+const BANKS = [
+  { id: "nubank",      name: "Nubank",              color: "#820AD1", mono: "N" },
+  { id: "itau",        name: "Itaú",                color: "#EC7000", mono: "It" },
+  { id: "bradesco",    name: "Bradesco",            color: "#CC092F", mono: "B" },
+  { id: "bb",          name: "Banco do Brasil",     color: "#F9DD16", mono: "BB" },
+  { id: "caixa",       name: "Caixa Econômica",     color: "#0070AF", mono: "CX" },
+  { id: "santander",   name: "Santander",           color: "#EC0000", mono: "S" },
+  { id: "inter",       name: "Banco Inter",         color: "#FF7A00", mono: "in" },
+  { id: "c6",          name: "C6 Bank",             color: "#242424", mono: "C6" },
+  { id: "btg",         name: "BTG Pactual",         color: "#0E2A47", mono: "BTG" },
+  { id: "safra",       name: "Banco Safra",         color: "#00397B", mono: "SF" },
+  { id: "original",    name: "Banco Original",      color: "#00A868", mono: "O" },
+  { id: "neon",        name: "Neon",                color: "#00E1D0", mono: "ne" },
+  { id: "next",        name: "Next",                color: "#00E05A", mono: "nx" },
+  { id: "pan",         name: "Banco Pan",           color: "#22B0FE", mono: "Pan" },
+  { id: "bv",          name: "Banco BV",            color: "#0033A0", mono: "BV" },
+  { id: "banrisul",    name: "Banrisul",            color: "#0055A5", mono: "Br" },
+  { id: "sicoob",      name: "Sicoob",              color: "#00524C", mono: "Sic" },
+  { id: "sicredi",     name: "Sicredi",             color: "#3FA110", mono: "Scr" },
+  { id: "brb",         name: "BRB",                 color: "#005CA9", mono: "BRB" },
+  { id: "banese",      name: "Banese",              color: "#007A3E", mono: "Bn" },
+  { id: "banestes",    name: "Banestes",            color: "#00539F", mono: "Bs" },
+  { id: "bnb",         name: "Banco do Nordeste",   color: "#C8102E", mono: "BNB" },
+  { id: "basa",        name: "Banco da Amazônia",   color: "#00793C", mono: "BA" },
+  { id: "mercadopago", name: "Mercado Pago",        color: "#00AEEF", mono: "MP" },
+  { id: "picpay",      name: "PicPay",              color: "#21C25E", mono: "PP" },
+  { id: "pagbank",     name: "PagBank",             color: "#0FA958", mono: "PB" },
+  { id: "will",        name: "Will Bank",           color: "#FFE600", mono: "will" },
+  { id: "agibank",     name: "Agibank",             color: "#F5822B", mono: "Ag" },
+  { id: "digio",       name: "digio",               color: "#003CA6", mono: "dg" },
+  { id: "xp",          name: "XP Investimentos",    color: "#111111", mono: "XP" },
+  { id: "rico",        name: "Rico",                color: "#E30613", mono: "R" },
+  { id: "genial",      name: "Genial",              color: "#00A0DF", mono: "G" },
+  { id: "modal",       name: "Modalmais",           color: "#0B1E3D", mono: "M" },
+  { id: "stone",       name: "Stone",               color: "#00A868", mono: "St" },
+  { id: "cora",        name: "Cora",                color: "#FE3E6D", mono: "Co" },
+  { id: "sofisa",      name: "Sofisa",              color: "#E30613", mono: "So" },
+  { id: "daycoval",    name: "Daycoval",            color: "#00539F", mono: "Dy" },
+  { id: "nuinvest",    name: "NuInvest",            color: "#5B21B6", mono: "NI" },
+  { id: "dinheiro",    name: "Dinheiro / carteira", color: "#69B821", mono: "$", glyph: "cash" },
+  { id: "outro",       name: "Outro banco",         color: "#64748B", mono: "?", glyph: "bank" },
+];
+
+const bankById = (id) => BANKS.find((b) => b.id === id) || null;
+
+/**
+ * Selo do banco: quadrado arredondado na cor da marca com o monograma.
+ * Ajusta o tamanho da fonte ao número de caracteres para nunca vazar.
+ */
+function bankLogo(bankId, size = 36, { radius = null } = {}) {
+  const bank = bankById(bankId);
+  if (!bank) {
+    return `<span class="bank-logo" style="width:${size}px;height:${size}px;border-radius:${radius ?? Math.round(size * 0.3)}px;
+      background:var(--surface-3);color:var(--faint)">${icon("bank", Math.round(size * 0.5))}</span>`;
+  }
+  const ink = readableInk(bank.color);
+  const r = radius ?? Math.round(size * 0.3);
+  const body = bank.glyph
+    ? `<span style="color:${ink}">${icon(bank.glyph, Math.round(size * 0.52))}</span>`
+    : `<span style="color:${ink};font-size:${Math.round(size * (bank.mono.length > 2 ? 0.29 : bank.mono.length > 1 ? 0.38 : 0.46))}px;
+        font-weight:800;letter-spacing:-0.03em;line-height:1">${esc(bank.mono)}</span>`;
+  return `<span class="bank-logo" title="${esc(bank.name)}" style="width:${size}px;height:${size}px;border-radius:${r}px;
+    background:linear-gradient(140deg, ${bank.color}, ${alpha(bank.color, 0.78)})">${body}</span>`;
+}
+
+/* --------------------------------------------------------------------------
+   FORMAS DE PAGAMENTO
+   -------------------------------------------------------------------------- */
+const PAYMENT_METHODS = {
+  pix:      { label: "Pix",           en: "Pix",        es: "Pix",           icon: "pix",     color: "#00B8A9" },
+  dinheiro: { label: "Dinheiro",      en: "Cash",       es: "Efectivo",      icon: "cash",    color: "#69B821" },
+  debito:   { label: "Débito",        en: "Debit",      es: "Débito",        icon: "card",    color: "#2E7CF6" },
+  credito:  { label: "Crédito",       en: "Credit",     es: "Crédito",       icon: "card",    color: "#7C5CFF" },
+  boleto:   { label: "Boleto",        en: "Bank slip",  es: "Boleto",        icon: "barcode", color: "#94733B" },
+  ted:      { label: "Transferência", en: "Transfer",   es: "Transferencia", icon: "swap",    color: "#0FA8B8" },
+  vale:     { label: "Vale/benefício",en: "Voucher",    es: "Vale",          icon: "gift",    color: "#EF8A17" },
+};
+
+const methodById = (id) => PAYMENT_METHODS[id] || null;
+
+/** Rótulo da forma de pagamento no idioma ativo. */
+function methodLabel(id) {
+  const method = methodById(id);
+  if (!method) return "";
+  return currentLocale === "en-US" ? method.en : currentLocale === "es-ES" ? method.es : method.label;
+}
+
+/** Etiqueta compacta usada nas listas de lançamento. */
+function methodChip(id, size = 12) {
+  const method = methodById(id);
+  if (!method) return "";
+  return `<span class="method-chip" style="color:${method.color};background:${alpha(method.color, 0.14)}">
+    ${icon(method.icon, size)}${esc(methodLabel(id))}</span>`;
+}
 
 
 /* ===== 03-data.js ===== */
@@ -1549,7 +1718,7 @@ const DEFAULT_CATEGORIES = [
 function seedDatabase(user) {
   const categories = DEFAULT_CATEGORIES.map((c) => ({ id: uid("cat"), archived: false, ...c }));
   const account = {
-    id: uid("acc"), name: "Conta principal", type: "checking", institution: "",
+    id: uid("acc"), name: "Conta principal", type: "checking", bankId: "outro",
     color: "#0F9D74", openingBalance: 0, openingDate: `${thisMonth()}-01`, archived: false, primary: true,
   };
   return {
@@ -1587,9 +1756,25 @@ function migrate(db) {
   next.transactions = next.transactions.map((tx) => ({
     paid: true, tags: [], notes: "", ...tx,
     amount: round2(Math.abs(Number(tx.amount) || 0)),
+    // bases anteriores não tinham forma de pagamento: deduz do que dá
+    method: tx.method ?? (tx.cardId ? "credito" : tx.type === "transfer" ? "ted" : null),
   }));
+  // contas antigas guardavam só o nome da instituição em texto
+  next.accounts = next.accounts.map((acc) => ({
+    ...acc,
+    bankId: acc.bankId ?? guessBank(acc.institution || acc.name),
+  }));
+  next.cards = next.cards.map((card) => ({ ...card, bankId: card.bankId ?? guessBank(card.name) }));
   next.schema = 2;
   return next;
+}
+
+/** Tenta reconhecer o banco pelo nome digitado ("meu nubank" -> nubank). */
+function guessBank(text) {
+  const needle = normalize(text);
+  if (!needle) return "outro";
+  const hit = BANKS.find((b) => b.id !== "outro" && needle.includes(normalize(b.name).split(" ")[0]));
+  return hit?.id || "outro";
 }
 
 function loadDb(userId) {
@@ -1695,8 +1880,10 @@ function normalizeTx(input) {
     categoryId: input.categoryId || null,
     accountId: input.accountId || null,
     toAccountId: input.toAccountId || null,
+    toName: (input.toName || "").trim() || null,
     cardId: input.cardId || null,
     goalId: input.goalId || null,
+    method: input.method || null,
     paid: input.paid !== false,
     installment: input.installment || null,
     recurringId: input.recurringId || null,
@@ -1829,6 +2016,30 @@ function detachRecurring(ruleId, { keepPast = true } = {}) {
    Cálculos — memoizados por assinatura do banco
    ========================================================================== */
 
+/*
+ * Transferência tem dois significados bem diferentes:
+ *   · entre contas suas  — o dinheiro continua com você, não é gasto
+ *   · para outra pessoa  — o dinheiro foi embora, conta como gasto
+ * Estas três funções são a única fonte de verdade sobre isso; todo cálculo
+ * de despesa passa por `isOutflow` para os dois casos nunca divergirem.
+ */
+const isInternalTransfer = (tx) => tx.type === "transfer" && !!tx.toAccountId;
+const isExternalTransfer = (tx) => tx.type === "transfer" && !tx.toAccountId;
+const isOutflow = (tx) => tx.type === "expense" || isExternalTransfer(tx);
+
+/** Para quem você já transferiu — alimenta as sugestões do formulário. */
+function transferNames() {
+  const seen = new Map();
+  for (const tx of db().transactions) {
+    if (!tx.toName) continue;
+    const key = normalize(tx.toName);
+    const entry = seen.get(key);
+    if (!entry || tx.date > entry.date) seen.set(key, { name: tx.toName, date: tx.date, count: (entry?.count || 0) + 1 });
+    else entry.count++;
+  }
+  return [...seen.values()].sort((a, b) => (b.count - a.count) || b.date.localeCompare(a.date));
+}
+
 let cacheToken = 0;
 const memo = new Map();
 const invalidate = () => { cacheToken++; memo.clear(); };
@@ -1855,13 +2066,13 @@ function monthSummary(monthStr) {
   return cached(`sum:${monthStr}`, () => {
     const list = txOfMonth(monthStr);
     const income = sum(list.filter((tx) => tx.type === "income"), (tx) => tx.amount);
-    const expense = sum(list.filter((tx) => tx.type === "expense"), (tx) => tx.amount);
-    const paidExpense = sum(list.filter((tx) => tx.type === "expense" && tx.paid), (tx) => tx.amount);
+    const expense = sum(list.filter(isOutflow), (tx) => tx.amount);
+    const paidExpense = sum(list.filter((tx) => isOutflow(tx) && tx.paid), (tx) => tx.amount);
     const receivedIncome = sum(list.filter((tx) => tx.type === "income" && tx.paid), (tx) => tx.amount);
     const pendingExpense = round2(expense - paidExpense);
     const pendingIncome = round2(income - receivedIncome);
     const essentialIds = new Set(db().categories.filter((c) => c.essential).map((c) => c.id));
-    const essential = sum(list.filter((tx) => tx.type === "expense" && essentialIds.has(tx.categoryId)), (tx) => tx.amount);
+    const essential = sum(list.filter((tx) => isOutflow(tx) && essentialIds.has(tx.categoryId)), (tx) => tx.amount);
     return {
       month: monthStr, income, expense, balance: round2(income - expense),
       paidExpense, receivedIncome, pendingExpense, pendingIncome,
@@ -1926,10 +2137,12 @@ function cardUsage(cardId) {
 /** Gastos por categoria no período, ordenados do maior para o menor. */
 function byCategory(list, kind = "expense") {
   const totals = new Map();
+  const matches = kind === "expense" ? isOutflow : (tx) => tx.type === kind;
   for (const tx of list) {
-    if (tx.type !== kind) continue;
+    if (!matches(tx)) continue;
     // dinheiro guardado em meta não é "sem categoria": aparece com o nome da meta
-    const key = tx.goalId ? `goal:${tx.goalId}` : (tx.categoryId || "none");
+    const key = tx.goalId ? `goal:${tx.goalId}`
+      : tx.categoryId || (isExternalTransfer(tx) ? "transfer" : "none");
     totals.set(key, round2((totals.get(key) || 0) + tx.amount));
   }
   const grand = sum([...totals.values()]);
@@ -1937,16 +2150,38 @@ function byCategory(list, kind = "expense") {
     .map(([id, value]) => {
       const isGoal = id.startsWith("goal:");
       const goal = isGoal ? goalById(id.slice(5)) : null;
-      const source = isGoal ? goal : (id === "none" ? null : catById(id));
+      const isTransfer = id === "transfer";
+      const source = isGoal ? goal : (id === "none" || isTransfer ? null : catById(id));
       return {
         id,
-        name: source?.name || (isGoal ? "Meta removida" : "Sem categoria"),
-        emoji: source?.emoji || "📦",
-        color: source?.color || "#64748B",
+        name: source?.name || (isGoal ? "Meta removida" : isTransfer ? "Transferências" : "Sem categoria"),
+        emoji: source?.emoji || (isTransfer ? "🔁" : "📦"),
+        color: source?.color || (isTransfer ? "#2E7CF6" : "#64748B"),
         value,
         share: grand > 0 ? (value / grand) * 100 : 0,
       };
     })
+    .sort((a, b) => b.value - a.value);
+}
+
+/** Totais por forma de pagamento no período, do maior para o menor. */
+function byMethod(list, kind = "expense") {
+  const totals = new Map();
+  const matches = kind === "expense" ? isOutflow : (tx) => tx.type === kind;
+  for (const tx of list) {
+    if (!matches(tx) || !tx.method) continue;
+    totals.set(tx.method, round2((totals.get(tx.method) || 0) + tx.amount));
+  }
+  const grand = sum([...totals.values()]);
+  return [...totals.entries()]
+    .map(([id, value]) => ({
+      id,
+      name: methodLabel(id),
+      color: methodById(id)?.color || "#64748B",
+      icon: methodById(id)?.icon || "wallet",
+      value,
+      share: grand > 0 ? (value / grand) * 100 : 0,
+    }))
     .sort((a, b) => b.value - a.value);
 }
 
@@ -1966,7 +2201,7 @@ function budgetStatus(monthStr) {
   return cached(`budgets:${monthStr}`, () => {
     const spent = new Map();
     for (const tx of txOfMonth(monthStr)) {
-      if (tx.type !== "expense" || !tx.categoryId) continue;
+      if (!isOutflow(tx) || !tx.categoryId) continue;
       spent.set(tx.categoryId, round2((spent.get(tx.categoryId) || 0) + tx.amount));
     }
     const seen = new Set();
@@ -2073,7 +2308,7 @@ function upcoming(days = 14) {
   const from = todayKey();
   const to = addDays(from, days);
   return db().transactions
-    .filter((tx) => !tx.paid && tx.type !== "transfer" && inRange(tx.date, addDays(from, -60), to))
+    .filter((tx) => !tx.paid && !isInternalTransfer(tx) && inRange(tx.date, addDays(from, -60), to))
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
@@ -2182,15 +2417,19 @@ function toCsv(rows) {
 }
 
 function transactionsToCsv(list) {
-  const head = ["Data", "Tipo", "Descrição", "Categoria", "Conta", "Cartão", "Valor", "Pago", "Parcela", "Observações"];
+  const head = ["Data", "Tipo", "Descrição", "Categoria", "Conta", "Destino", "Cartão", "Pagamento", "Valor", "Pago", "Parcela", "Observações"];
   const body = list.map((tx) => [
     tx.date,
-    tx.type === "income" ? "Receita" : tx.type === "transfer" ? "Transferência" : "Despesa",
+    tx.type === "income" ? "Receita"
+      : isExternalTransfer(tx) ? "Transferência enviada"
+      : tx.type === "transfer" ? "Transferência entre contas" : "Despesa",
     tx.description,
     catById(tx.categoryId)?.name || "",
     accById(tx.accountId)?.name || "",
+    tx.toName || accById(tx.toAccountId)?.name || "",
     cardById(tx.cardId)?.name || "",
-    (tx.type === "expense" ? -tx.amount : tx.amount).toFixed(2).replace(".", ","),
+    methodLabel(tx.method) || "",
+    (isOutflow(tx) ? -tx.amount : tx.amount).toFixed(2).replace(".", ","),
     tx.paid ? "Sim" : "Não",
     tx.installment ? `${tx.installment.index}/${tx.installment.of}` : "",
     tx.notes || "",
@@ -2832,6 +3071,33 @@ const segInput = (name, options, value) => `
       ${o.color ? `style="--seg-color:${o.color}"` : ""}>${o.icon ? icon(o.icon, 14) : ""}${esc(o.label)}</button>`).join("")}
   </div>`;
 
+/** Grade de formas de pagamento: Pix, dinheiro, débito, crédito, boleto… */
+const methodPicker = (name, value) => `
+  <div class="method-grid" data-methodpicker="${esc(name)}">
+    <input type="hidden" name="${esc(name)}" value="${esc(value || "")}">
+    ${Object.entries(PAYMENT_METHODS).map(([id, method]) => `
+      <button type="button" class="method-opt" data-method="${id}" aria-pressed="${id === value}"
+        style="--m:${method.color}">
+        ${icon(method.icon, 17)}
+        <span>${esc(methodLabel(id))}</span>
+      </button>`).join("")}
+  </div>`;
+
+/** Grade de bancos com busca — mostra o selo de cada instituição. */
+const bankPicker = (name, value) => `
+  <div data-bankpicker="${esc(name)}">
+    <input type="hidden" name="${esc(name)}" value="${esc(value || "")}">
+    <input class="input bank-search" placeholder="Buscar banco…" autocomplete="off" aria-label="Buscar banco">
+    <div class="bank-grid mt-8">
+      ${BANKS.map((bank) => `
+        <button type="button" class="bank-opt" data-bank="${bank.id}" data-name="${esc(normalize(bank.name))}"
+          aria-pressed="${bank.id === value}" title="${esc(bank.name)}">
+          ${bankLogo(bank.id, 34, { radius: 10 })}
+          <span class="bank-opt-name">${esc(bank.name)}</span>
+        </button>`).join("")}
+    </div>
+  </div>`;
+
 /** Ativa os seletores customizados dentro de um container. */
 function bindPickers(root) {
   delegate(root, "click", "[data-colorpicker] .color-dot", (event, node) => {
@@ -2845,6 +3111,31 @@ function bindPickers(root) {
     $$(".icon-opt", wrap).forEach((d) => d.setAttribute("aria-pressed", "false"));
     node.setAttribute("aria-pressed", "true");
     $("input[type=hidden]", wrap).value = node.dataset.emoji;
+  });
+  delegate(root, "click", "[data-methodpicker] .method-opt", (event, node) => {
+    const wrap = node.closest("[data-methodpicker]");
+    $$(".method-opt", wrap).forEach((b) => b.setAttribute("aria-pressed", "false"));
+    node.setAttribute("aria-pressed", "true");
+    $("input[type=hidden]", wrap).value = node.dataset.method;
+  });
+  delegate(root, "click", "[data-bankpicker] .bank-opt", (event, node) => {
+    const wrap = node.closest("[data-bankpicker]");
+    $$(".bank-opt", wrap).forEach((b) => b.setAttribute("aria-pressed", "false"));
+    node.setAttribute("aria-pressed", "true");
+    $("input[type=hidden]", wrap).value = node.dataset.bank;
+    wrap.dispatchEvent(new CustomEvent("bankchange", { detail: node.dataset.bank, bubbles: true }));
+  });
+  delegate(root, "input", "[data-bankpicker] .bank-search", (event, node) => {
+    const needle = normalize(node.value);
+    for (const option of $$(".bank-opt", node.closest("[data-bankpicker]"))) {
+      option.hidden = !!needle && !option.dataset.name.includes(needle);
+    }
+  });
+  delegate(root, "click", "[data-dest]", (event, node) => {
+    const input = $("[name='toName']", node.closest("form") || root);
+    if (!input) return;
+    input.value = node.dataset.dest;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
   });
   delegate(root, "click", "[data-seg] button", (event, node) => {
     const wrap = node.closest("[data-seg]");
@@ -2931,13 +3222,15 @@ function txRow(tx, { showDate = false, compact = false } = {}) {
   const card = cardById(tx.cardId);
   const isIncome = tx.type === "income";
   const isTransfer = tx.type === "transfer";
-  const color = isTransfer ? "var(--info)" : isIncome ? "var(--income)" : "var(--expense)";
+  const external = isExternalTransfer(tx);
+  const color = external ? "var(--expense)" : isTransfer ? "var(--info)" : isIncome ? "var(--income)" : "var(--expense)";
   const late = !tx.paid && tx.date < todayKey();
 
   const meta = [
     showDate ? dateLabel(tx.date) : null,
-    isTransfer ? `${account?.name || "?"} → ${accById(tx.toAccountId)?.name || "?"}` : (category?.name || "Sem categoria"),
+    isTransfer ? `${account?.name || "?"} → ${tx.toName || accById(tx.toAccountId)?.name || "?"}` : (category?.name || "Sem categoria"),
     card ? card.name : account?.name,
+    !isTransfer && tx.method ? methodLabel(tx.method) : null,
     tx.installment ? `${tx.installment.index}/${tx.installment.of}` : null,
     tx.recurringId ? "recorrente" : null,
   ].filter(Boolean);
@@ -2953,7 +3246,7 @@ function txRow(tx, { showDate = false, compact = false } = {}) {
       </span>
     </span>
     <span style="text-align:right;flex:none">
-      <span class="list-amount num" style="color:${color};display:block">${isIncome ? "+" : isTransfer ? "" : "−"}${esc(money(tx.amount))}</span>
+      <span class="list-amount num" style="color:${color};display:block">${isIncome ? "+" : isTransfer && !external ? "" : "−"}${esc(money(tx.amount))}</span>
       ${!tx.paid ? `<span class="badge ${late ? "badge-neg" : "badge-warn"}" style="margin-top:3px">${late ? "atrasado" : t("pending")}</span>` : (compact ? "" : "")}
     </span>
   </button>`;
@@ -2970,7 +3263,7 @@ function txListByDay(list, { emptyText = "Nenhum lançamento no período." } = {
     groups.get(tx.date).push(tx);
   }
   return [...groups.entries()].map(([date, items]) => {
-    const net = sum(items, (tx) => (tx.type === "income" ? tx.amount : tx.type === "transfer" ? 0 : -tx.amount));
+    const net = sum(items, (tx) => (tx.type === "income" ? tx.amount : isInternalTransfer(tx) ? 0 : -tx.amount));
     return `<div class="day-head">
         <span>${esc(dateLabel(date, { weekday: true }))} <span class="faint" style="font-weight:500">· ${esc(relativeDay(date))}</span></span>
         <span class="num ${net >= 0 ? "pos" : "neg"}">${esc(money(net, { sign: true }))}</span>
@@ -3109,7 +3402,7 @@ function openTransactionModal(existing = null, defaults = {}) {
     type: defaults.type || "expense",
     amount: "", date: defaults.date || todayKey(), description: "",
     categoryId: defaults.categoryId || "", accountId: defaults.accountId || activeAccounts()[0]?.id || "",
-    cardId: defaults.cardId || "", paid: true, notes: "", tags: [],
+    cardId: defaults.cardId || "", method: defaults.method || "pix", paid: true, notes: "", tags: [],
   };
 
   const accountOptions = activeAccounts().map((a) => ({ value: a.id, label: a.name }));
@@ -3130,20 +3423,28 @@ function openTransactionModal(existing = null, defaults = {}) {
 
       ${field(t("amount"), moneyInput("amount", tx.amount === "" ? "" : num(tx.amount, 2), { required: true }))}
 
+      ${isTransfer ? "" : field("Forma de pagamento", methodPicker("method", tx.method))}
+
+      ${isTransfer ? field("Para quem", destinationInput(tx), {
+        hint: "Digite um nome (Pix para alguém) ou escolha uma conta sua na lista",
+      }) : ""}
+
       <div class="form-grid">
-        ${field(t("description"), textInput("description", tx.description, { placeholder: isTransfer ? "Ex.: reserva de emergência" : "Ex.: mercado do mês", maxlength: 90 }), { span: isTransfer })}
+        ${field(t("description"), textInput("description", tx.description, { placeholder: isTransfer ? "Ex.: aluguel do mês" : "Ex.: mercado do mês", maxlength: 90 }), { span: isTransfer })}
         ${isTransfer ? "" : field(t("category"), selectInput("categoryId", cats.map((c) => ({ value: c.id, label: `${c.emoji} ${c.name}` })), tx.categoryId, { placeholder: "Sem categoria" }))}
 
         ${field(t("date"), textInput("date", tx.date, { type: "date", required: true }))}
         ${isTransfer
-          ? field("Para a conta", selectInput("toAccountId", accountOptions, tx.toAccountId, { placeholder: "Escolha…", required: true }))
+          ? field("Sai da conta", selectInput("accountId", accountOptions, tx.accountId, { required: true }))
           : field(t("account"), selectInput("accountId", accountOptions, tx.accountId, { placeholder: "Nenhuma" }))}
 
-        ${isTransfer ? field("Da conta", selectInput("accountId", accountOptions, tx.accountId, { required: true })) : ""}
+        ${isTransfer ? field(t("category"), selectInput("categoryId", categoriesOf("expense").map((c) => ({ value: c.id, label: `${c.emoji} ${c.name}` })), tx.categoryId, { placeholder: "Sem categoria" }), { span: true, hint: "Só usada quando o dinheiro vai para fora" }) : ""}
         ${!isTransfer && cardOptions.length ? field(t("card"), selectInput("cardId", cardOptions, tx.cardId, { placeholder: "Sem cartão" })) : ""}
 
         ${!isEdit && type === "expense" ? field("Parcelas", textInput("installments", "1", { type: "number", min: 1, max: 72, inputmode: "numeric" }), { hint: "Acima de 1 gera a série completa" }) : ""}
       </div>
+
+      ${isTransfer ? `<div class="card card-pad-sm f-12 muted row gap-8" id="transferHint" style="background:var(--surface-2);line-height:1.55;align-items:flex-start"></div>` : ""}
 
       <div class="card card-pad-sm" style="background:var(--surface-2)">
         ${switchInput("paid", tx.paid !== false, type === "income" ? "Já recebi" : "Já foi pago", "Desmarque para virar uma conta a pagar")}
@@ -3182,11 +3483,32 @@ function openTransactionModal(existing = null, defaults = {}) {
           description: current.description || "",
           date: current.date || todayKey(),
           accountId: current.accountId || tx.accountId,
+          toName: current.toName ?? tx.toName,
           paid: current.paid,
         });
         render(event.detail);
       });
       cancel.addEventListener("click", () => close());
+
+      // explica, enquanto a pessoa digita, se aquilo vai contar como gasto
+      const updateTransferHint = () => {
+        const hint = $("#transferHint", body);
+        if (!hint) return;
+        const typed = $("[name='toName']", body)?.value || "";
+        const target = matchAccountByName(typed);
+        // o texto vai inteiro dentro de um span: senão cada <b> vira uma
+        // coluna do flex e a frase quebra em pedaços
+        const [glyph, tone, text] = !typed.trim()
+          ? ["info", "var(--muted)", "Nome livre para um Pix a outra pessoa, ou o nome de uma conta sua para mover dinheiro entre contas."]
+          : target
+            ? ["swap", "var(--info)", `<b>Entre contas suas.</b> Sai de uma e entra em <b>${esc(target.name)}</b> — não conta como gasto do mês.`]
+            : ["arrowRight", "var(--warn)", `<b>Sai para fora.</b> O dinheiro vai para <b>${esc(typed.trim())}</b> e entra no total de gastos do mês.`];
+        hint.innerHTML = `<span style="color:${tone};flex:none;margin-top:1px">${icon(glyph, 14)}</span><span>${text}</span>`;
+      };
+      updateTransferHint();
+      body.addEventListener("input", (event) => {
+        if (event.target.name === "toName") updateTransferHint();
+      });
 
       body.addEventListener("submit", (event) => {
         event.preventDefault();
@@ -3196,12 +3518,20 @@ function openTransactionModal(existing = null, defaults = {}) {
           amount: () => (amount > 0 ? "" : "Informe um valor maior que zero."),
           date: (v) => (v ? "" : "Escolha a data."),
           ...(form.type === "transfer" ? {
-            toAccountId: (v) => (!v ? "Escolha a conta de destino." : v === form.accountId ? "As contas devem ser diferentes." : ""),
+            toName: (v) => {
+              if (!v.trim()) return "Diga para quem vai o dinheiro.";
+              const match = matchAccountByName(v);
+              if (match && match.id === form.accountId) return "A origem e o destino são a mesma conta.";
+              return "";
+            },
             accountId: (v) => (v ? "" : "Escolha a conta de origem."),
           } : {}),
         });
         if (!ok) return;
 
+        // no destino, texto que casa com uma conta sua vira transferência
+        // interna; qualquer outro texto é dinheiro saindo para fora
+        const target = form.type === "transfer" ? matchAccountByName(form.toName) : null;
         const payload = {
           type: form.type,
           amount,
@@ -3209,8 +3539,10 @@ function openTransactionModal(existing = null, defaults = {}) {
           description: form.description?.trim(),
           categoryId: form.categoryId || null,
           accountId: form.accountId || null,
-          toAccountId: form.type === "transfer" ? form.toAccountId : null,
+          toAccountId: target?.id || null,
+          toName: form.type === "transfer" ? (target ? null : form.toName.trim()) : null,
           cardId: form.type === "transfer" ? null : (form.cardId || null),
+          method: form.type === "transfer" ? "ted" : (form.method || null),
           paid: !!form.paid,
           notes: form.notes || "",
         };
@@ -3219,9 +3551,12 @@ function openTransactionModal(existing = null, defaults = {}) {
           applyTxEdit(existing, payload);
         } else {
           const created = addTransaction({ ...payload, installments: Number(form.installments) || 1 });
+          const what = payload.type === "income" ? "Receita"
+            : payload.type !== "transfer" ? "Despesa"
+            : target ? `Transferência para ${target.name}` : `Transferência para ${payload.toName}`;
           toast(created.length > 1
             ? `${created.length} parcelas criadas — ${money(sum(created, (c) => c.amount))}`
-            : `${payload.type === "income" ? "Receita" : payload.type === "transfer" ? "Transferência" : "Despesa"} de ${money(amount)} registrada`);
+            : `${what} de ${money(amount)} registrada`);
         }
         commit();
         close();
@@ -3230,6 +3565,33 @@ function openTransactionModal(existing = null, defaults = {}) {
     },
   });
   return modal;
+}
+
+/**
+ * Campo "Para quem": texto livre com sugestões das contas do usuário e de
+ * quem já recebeu transferência antes. Aceitar texto é o ponto — a maioria
+ * das transferências vai para uma pessoa, não para outra conta sua.
+ */
+function destinationInput(tx) {
+  const current = tx.toName || (tx.toAccountId ? accById(tx.toAccountId)?.name : "") || "";
+  const recent = transferNames().slice(0, 12);
+  return `
+    <input class="input" name="toName" list="destOptions" autocomplete="off" maxlength="60"
+      placeholder="Ex.: João da padaria, Maria, minha poupança" value="${esc(current)}">
+    <datalist id="destOptions">
+      ${activeAccounts().map((a) => `<option value="${esc(a.name)}">minha conta</option>`).join("")}
+      ${recent.map((r) => `<option value="${esc(r.name)}">já usado ${r.count}x</option>`).join("")}
+    </datalist>
+    ${recent.length ? `<div class="row gap-6 wrap mt-8">
+      ${recent.slice(0, 5).map((r) => `<button type="button" class="chip" data-dest="${esc(r.name)}">${esc(r.name)}</button>`).join("")}
+    </div>` : ""}`;
+}
+
+/** Casa o texto digitado com uma conta do usuário, ignorando acento e caixa. */
+function matchAccountByName(text) {
+  const needle = normalize(text);
+  if (!needle) return null;
+  return activeAccounts().find((a) => normalize(a.name) === needle) || null;
 }
 
 /** Edição respeitando séries de parcelas. */
@@ -3297,6 +3659,24 @@ function openTxActions(tx, anchor) {
   showPopover(anchor, items);
 }
 
+/** Ao escolher o banco, a cor da conta/cartão passa a ser a da marca. */
+function syncColorToBank(root, { onChange = null } = {}) {
+  root.addEventListener("bankchange", (event) => {
+    const bank = bankById(event.detail);
+    if (!bank || bank.id === "outro") return;
+    const wrap = $("[data-colorpicker]", root);
+    if (wrap) {
+      $("input[type=hidden]", wrap).value = bank.color;
+      // a paleta fixa pode não ter a cor exata da marca: só realça se houver
+      $$(".color-dot", wrap).forEach((dot) => dot.setAttribute("aria-pressed",
+        String(dot.dataset.color.toLowerCase() === bank.color.toLowerCase())));
+    }
+    const nameField = $("[name='name']", root);
+    if (nameField && !nameField.value.trim()) nameField.value = bank.name;
+    onChange?.(bank);
+  });
+}
+
 /* --------------------------------------------------------------------------
    Conta
    -------------------------------------------------------------------------- */
@@ -3310,18 +3690,18 @@ const ACCOUNT_TYPES = [
 
 function openAccountModal(existing = null) {
   const account = existing || {
-    name: "", type: "checking", institution: "", color: PALETTE[0],
+    name: "", type: "checking", bankId: "", color: PALETTE[0],
     openingBalance: 0, openingDate: `${thisMonth()}-01`, archived: false,
   };
   const body = el("form", { class: "col gap-16", id: "accForm" });
   body.innerHTML = `
+    ${field("Banco", bankPicker("bankId", account.bankId), { span: true })}
     <div class="form-grid">
-      ${field("Nome da conta", textInput("name", account.name, { placeholder: "Ex.: Nubank", required: true, maxlength: 40 }), { span: true })}
+      ${field("Nome da conta", textInput("name", account.name, { placeholder: "Ex.: Conta do dia a dia", required: true, maxlength: 40 }), { span: true })}
       ${field("Tipo", selectInput("type", ACCOUNT_TYPES, account.type))}
-      ${field("Instituição", textInput("institution", account.institution, { placeholder: "Opcional", maxlength: 40 }))}
       ${field("Saldo inicial", moneyInput("openingBalance", account.openingBalance ? num(account.openingBalance, 2) : ""))}
       ${field("A partir de", textInput("openingDate", account.openingDate, { type: "date" }))}
-      ${field("Cor", colorPicker("color", account.color), { span: true })}
+      ${field("Cor de destaque", colorPicker("color", account.color))}
     </div>
     ${existing ? `<div class="card card-pad-sm" style="background:var(--surface-2)">${switchInput("archived", account.archived, "Arquivar conta", "Some das listas, mas o histórico continua")}</div>` : ""}`;
 
@@ -3359,13 +3739,14 @@ function openAccountModal(existing = null) {
     title: existing ? "Editar conta" : "Nova conta", iconName: "bank", body, footer,
     onMount: ({ close }) => {
       bindPickers(body);
+      syncColorToBank(body);
       body.addEventListener("submit", (event) => {
         event.preventDefault();
         const form = readForm(body);
         if (!validate(body, { name: (v) => (v.trim() ? "" : "Dê um nome para a conta.") })) return;
         upsert("accounts", {
           ...(existing ? { id: existing.id } : {}),
-          name: form.name.trim(), type: form.type, institution: form.institution.trim(),
+          name: form.name.trim(), type: form.type, bankId: form.bankId || "outro",
           color: form.color, openingBalance: parseMoney(form.openingBalance),
           openingDate: form.openingDate || `${thisMonth()}-01`,
           archived: !!form.archived,
@@ -3385,7 +3766,7 @@ const CARD_BRANDS = ["Visa", "Mastercard", "Elo", "American Express", "Hipercard
 
 function openCardModal(existing = null) {
   const card = existing || {
-    name: "", brand: "Visa", color: "#4F46E5", limit: 0,
+    name: "", brand: "Visa", bankId: "", color: "#4F46E5", limit: 0,
     closingDay: 1, dueDay: 10, accountId: activeAccounts()[0]?.id || "", archived: false,
   };
   const body = el("form", { class: "col gap-16", id: "cardForm" });
@@ -3393,6 +3774,7 @@ function openCardModal(existing = null) {
 
   body.innerHTML = `
     <div id="cardPreview"></div>
+    ${field("Banco emissor", bankPicker("bankId", card.bankId), { span: true })}
     <div class="form-grid">
       ${field("Apelido do cartão", textInput("name", card.name, { placeholder: "Ex.: Nubank Roxinho", required: true, maxlength: 32 }), { span: true })}
       ${field("Bandeira", selectInput("brand", CARD_BRANDS, card.brand))}
@@ -3407,7 +3789,7 @@ function openCardModal(existing = null) {
   const drawPreview = () => {
     const form = readForm(body);
     $("#cardPreview", body).innerHTML = creditCardVisual({
-      name: form.name || "Seu cartão", brand: form.brand, color: form.color,
+      name: form.name || "Seu cartão", brand: form.brand, color: form.color, bankId: form.bankId,
       limit: parseMoney(form.limit), used: existing ? cardUsage(existing.id) : 0,
       closingDay: form.closingDay, dueDay: form.dueDay,
     });
@@ -3442,6 +3824,7 @@ function openCardModal(existing = null) {
     title: existing ? "Editar cartão" : "Novo cartão", iconName: "card", body, footer,
     onMount: ({ close }) => {
       bindPickers(body);
+      syncColorToBank(body, { onChange: () => setTimeout(drawPreview, 0) });
       drawPreview();
       body.addEventListener("input", debounce(drawPreview, 120));
       body.addEventListener("click", (event) => { if (event.target.closest(".color-dot")) setTimeout(drawPreview, 0); });
@@ -3451,7 +3834,7 @@ function openCardModal(existing = null) {
         if (!validate(body, { name: (v) => (v.trim() ? "" : "Dê um apelido ao cartão.") })) return;
         upsert("cards", {
           ...(existing ? { id: existing.id } : {}),
-          name: form.name.trim(), brand: form.brand, color: form.color,
+          name: form.name.trim(), brand: form.brand, bankId: form.bankId || "outro", color: form.color,
           limit: parseMoney(form.limit),
           closingDay: Number(form.closingDay), dueDay: Number(form.dueDay),
           accountId: form.accountId || null, archived: !!form.archived,
@@ -3471,9 +3854,12 @@ function creditCardVisual(card) {
   const share = card.limit ? pct(used, card.limit) : 0;
   return `<div class="credit-card" style="background:linear-gradient(135deg, ${card.color}, ${alpha(card.color, 0.72)});color:${ink}">
     <div class="row-between">
-      <div>
-        <div class="cc-chip mb-8"></div>
-        <div class="f-14 w-700 truncate" style="max-width:180px">${esc(card.name)}</div>
+      <div class="row gap-10" style="min-width:0">
+        ${card.bankId && card.bankId !== "outro" ? bankLogo(card.bankId, 34, { radius: 9 }) : `<span class="cc-chip"></span>`}
+        <div style="min-width:0">
+          <div class="f-14 w-700 truncate" style="max-width:150px">${esc(card.name)}</div>
+          ${card.bankId && card.bankId !== "outro" ? `<div class="f-11" style="opacity:.85">${esc(bankById(card.bankId)?.name || "")}</div>` : ""}
+        </div>
       </div>
       <div class="right">
         <div class="f-11" style="opacity:.8">${esc(card.brand || "")}</div>
@@ -3757,6 +4143,7 @@ function openRecurringModal(existing = null) {
       ${segInput("type", [{ value: "expense", label: t("expense"), icon: "arrowDown" }, { value: "income", label: t("income"), icon: "arrowUp" }], type)}
       ${field(t("description"), textInput("description", rule.description, { placeholder: "Ex.: aluguel", required: true, maxlength: 60 }))}
       ${field(t("amount"), moneyInput("amount", rule.amount ? num(rule.amount, 2) : "", { required: true }))}
+      ${field("Forma de pagamento", methodPicker("method", rule.method || "pix"))}
       <div class="form-grid">
         ${field("Frequência", selectInput("frequency", Object.entries(FREQUENCIES).map(([value, f]) => ({ value, label: f.label })), rule.frequency))}
         ${field("Dia do mês", selectInput("day", Array.from({ length: 31 }, (_, i) => ({ value: i + 1, label: `Dia ${i + 1}` })), rule.day), { hint: "Usado nas frequências mensais" })}
@@ -3823,6 +4210,7 @@ function openRecurringModal(existing = null) {
           ...(existing ? { id: existing.id } : {}),
           type: form.type, amount, description: form.description.trim(),
           categoryId: form.categoryId || null, accountId: form.accountId || null, cardId: form.cardId || null,
+          method: form.method || null,
           frequency: form.frequency, day: Number(form.day),
           startDate: form.startDate, endDate: form.endDate || null,
           active: !!form.active, autoPay: !!form.autoPay, notes: form.notes || "",
@@ -4106,6 +4494,7 @@ function pageTransactions() {
     if (filters.status === "pending" && tx.paid) return false;
     if (filters.status === "paid" && !tx.paid) return false;
     if (filters.status === "late" && (tx.paid || tx.date >= todayKey())) return false;
+    if (filters.method && tx.method !== filters.method) return false;
     if (filters.q) {
       const needle = normalize(filters.q);
       const haystack = normalize([tx.description, catById(tx.categoryId)?.name, accById(tx.accountId)?.name, cardById(tx.cardId)?.name, tx.notes].join(" "));
@@ -4116,7 +4505,7 @@ function pageTransactions() {
 
   const income = sum(filtered.filter((tx) => tx.type === "income"), (tx) => tx.amount);
   const expense = sum(filtered.filter((tx) => tx.type === "expense"), (tx) => tx.amount);
-  const activeFilters = ["type", "categoryId", "accountId", "cardId", "status"].filter((k) => filters[k] && filters[k] !== "all").length;
+  const activeFilters = ["type", "categoryId", "accountId", "cardId", "status", "method"].filter((k) => filters[k] && filters[k] !== "all").length;
 
   return `
     <div class="page-head">
@@ -4153,6 +4542,7 @@ function pageTransactions() {
           ${filters.accountId ? `<button class="chip" aria-pressed="true" data-clear="accountId">${esc(accById(filters.accountId)?.name || "")} ${icon("x", 12)}</button>` : ""}
           ${filters.cardId ? `<button class="chip" aria-pressed="true" data-clear="cardId">${esc(cardById(filters.cardId)?.name || "")} ${icon("x", 12)}</button>` : ""}
           ${filters.status ? `<button class="chip" aria-pressed="true" data-clear="status">${esc({ paid: "Pagos", pending: "Pendentes", late: "Atrasados" }[filters.status])} ${icon("x", 12)}</button>` : ""}
+          ${filters.method ? `<button class="chip" aria-pressed="true" data-clear="method">${esc(methodLabel(filters.method))} ${icon("x", 12)}</button>` : ""}
           <button class="btn btn-ghost btn-sm" data-clear="all">limpar tudo</button>
         </div>` : ""}
       <div class="row gap-16 f-12" style="padding-top:2px">
@@ -4209,6 +4599,7 @@ function openFiltersModal() {
       ${field(t("category"), selectInput("categoryId", db().categories.map((c) => ({ value: c.id, label: `${c.emoji} ${c.name}` })), filters.categoryId, { placeholder: "Todas" }))}
       ${field(t("account"), selectInput("accountId", db().accounts.map((a) => ({ value: a.id, label: a.name })), filters.accountId, { placeholder: "Todas" }))}
       ${activeCards().length ? field(t("card"), selectInput("cardId", db().cards.map((c) => ({ value: c.id, label: c.name })), filters.cardId, { placeholder: "Todos" }), { span: true }) : ""}
+      ${field("Forma de pagamento", selectInput("method", Object.keys(PAYMENT_METHODS).map((id) => ({ value: id, label: methodLabel(id) })), filters.method, { placeholder: "Todas" }), { span: true })}
     </div>`;
 
   const footer = el("div", { class: "row gap-8", style: { width: "100%", justifyContent: "space-between" } }, [
@@ -4229,6 +4620,7 @@ function openFiltersModal() {
           categoryId: form.categoryId || null,
           accountId: form.accountId || null,
           cardId: form.cardId || null,
+          method: form.method || null,
         });
         close();
         render();
@@ -4347,11 +4739,12 @@ function pageWallets() {
     const balance = accountBalance(account.id);
     const movements = db().transactions.filter((tx) => tx.accountId === account.id || tx.toAccountId === account.id).length;
     const typeLabel = ACCOUNT_TYPES.find((x) => x.value === account.type)?.label || account.type;
+    const bank = bankById(account.bankId);
     return `<button class="list-row is-button" data-account="${esc(account.id)}">
-      <span class="avatar-icon" style="background:${alpha(account.color, 0.16)};color:${account.color}">${icon(account.type === "cash" ? "wallet" : account.type === "investment" ? "trendUp" : "bank", 17)}</span>
+      ${bankLogo(account.bankId, 36)}
       <span class="grow" style="min-width:0">
         <span class="list-title truncate" style="display:block">${esc(account.name)}</span>
-        <span class="list-meta"><span>${esc(typeLabel)}</span>${account.institution ? `<span class="dot-sep">${esc(account.institution)}</span>` : ""}<span class="dot-sep">${movements} mov.</span></span>
+        <span class="list-meta">${bank && bank.id !== "outro" ? `<span>${esc(bank.name)}</span><span class="dot-sep">${esc(typeLabel)}</span>` : `<span>${esc(typeLabel)}</span>`}<span class="dot-sep">${movements} mov.</span></span>
       </span>
       <span class="list-amount num ${balance >= 0 ? "" : "neg"}">${esc(money(balance))}</span>
     </button>`;
@@ -4731,6 +5124,7 @@ function pageReports() {
 
   const expenses = byCategory(list, "expense");
   const incomes = byCategory(list, "income");
+  const methods = byMethod(list, "expense");
   const totalExpense = sum(expenses, (c) => c.value);
   const totalIncome = sum(incomes, (c) => c.value);
 
@@ -4803,6 +5197,26 @@ function pageReports() {
             ${rankBars(incomes.slice(0, 8))}`
             : emptyState({ iconName: "chart", title: "Sem receitas", text: "Nenhuma receita registrada no período." }))}
       </div>
+
+      ${methods.length ? sectionCard("Como você pagou",
+        `<div class="row gap-16 wrap" style="align-items:center;justify-content:center">
+          <div style="flex:none">${donutChart(methods, { size: 168, center: moneyShort(sum(methods, (m) => m.value)), centerSub: "no período" })}</div>
+          <div class="grow" style="min-width:210px">
+            <div class="col gap-12">${methods.map((m) => `
+              <div>
+                <div class="row-between mb-4">
+                  <span class="row gap-8" style="min-width:0;color:${m.color}">${icon(m.icon, 15)}
+                    <span class="f-13 w-600" style="color:var(--text)">${esc(m.name)}</span></span>
+                  <span class="row gap-8" style="flex:none">
+                    <span class="f-13 w-700 num">${esc(money(m.value))}</span>
+                    <span class="f-11 faint num" style="min-width:34px;text-align:right">${esc(pctText(m.share))}</span>
+                  </span>
+                </div>
+                <div class="bar"><div class="bar-fill" style="width:${m.share}%;background:${m.color}"></div></div>
+              </div>`).join("")}</div>
+          </div>
+        </div>`,
+        { sub: "Distribuição das despesas por meio de pagamento" }) : ""}
 
       ${comparison.length ? sectionCard("Você gastou mais ou menos?",
         `<div class="scroll-x"><table class="table">
@@ -5379,9 +5793,32 @@ function pageSettings() {
             <div class="row gap-8 wrap">
               <button class="btn btn-sm" data-action="rename">${icon("pencil", 14)} Mudar nome</button>
               <button class="btn btn-sm" data-action="change-pin">${icon("lock", 14)} Trocar PIN</button>
-              <button class="btn btn-sm" data-action="switch-user">${icon("users", 14)} Trocar de perfil</button>
             </div>
-          </div>`)}
+
+            <div class="divider" style="margin:2px 0"></div>
+
+            <div class="row-between wrap gap-12">
+              <div style="min-width:0">
+                <div class="f-13 w-700">Trocar de usuário</div>
+                <div class="f-11 muted mt-4">
+                  ${getUsers().length > 1
+                    ? `Há ${getUsers().length} perfis neste aparelho. Cada um tem os próprios lançamentos.`
+                    : "Volta para a tela inicial, onde você entra em outro perfil ou cria um novo."}
+                </div>
+              </div>
+              <button class="btn btn-primary" data-action="switch-user">${icon("users", 15)} Trocar de usuário</button>
+            </div>
+
+            ${getUsers().length > 1 ? `
+              <div class="row gap-6 wrap">
+                ${getUsers().filter((u) => u.id !== state.user.id).map((u) => `
+                  <button class="chip" data-switch-to="${esc(u.id)}">
+                    <span class="chip-dot" style="background:${u.color || PALETTE[0]}"></span>
+                    ${esc(u.name)}
+                  </button>`).join("")}
+              </div>` : ""}
+          </div>`,
+          { sub: "Perfil ativo neste aparelho" })}
       </div>
 
       <div class="col gap-16">
@@ -5409,8 +5846,12 @@ function pageSettings() {
           `<div class="col gap-12">
             ${logoLockup(40)}
             <div class="f-12 muted" style="line-height:1.65">
-              <b>${esc(APP.name)}</b> versão ${esc(APP.version)}.<br>
+              <b>${esc(APP.name)}</b> versão ${esc(APP.version)}<br>
               Funciona offline, instala como aplicativo e guarda tudo no seu aparelho.
+            </div>
+            <div class="card card-pad-sm row-between" style="background:var(--surface-2)">
+              <span class="eyebrow">Build carregado</span>
+              <code class="f-12 w-700" style="letter-spacing:.04em">${esc(APP.build)}</code>
             </div>
             <div class="row gap-8 wrap">
               <button class="btn btn-sm" data-action="check-update">${icon("refresh", 14)} Procurar atualização</button>
@@ -5418,6 +5859,18 @@ function pageSettings() {
               <button class="btn btn-sm" data-action="share">${icon("share", 14)} Compartilhar</button>
             </div>
             <div class="f-11 faint" id="swStatus"></div>
+            <details>
+              <summary class="f-12 w-600 muted" style="cursor:pointer;padding:4px 0">O app não atualizou?</summary>
+              <div class="col gap-10 mt-12 f-12 muted" style="line-height:1.6">
+                <p>Compare o código acima com o da versão publicada. Se estiverem
+                diferentes, o navegador guardou uma cópia antiga.</p>
+                <button class="btn btn-sm btn-danger" data-action="force-update">
+                  ${icon("refresh", 14)} Forçar atualização agora
+                </button>
+                <p class="f-11 faint">Limpa o cache do app e recarrega. Seus lançamentos não são afetados —
+                eles ficam em outro lugar do navegador.</p>
+              </div>
+            </details>
           </div>`)}
       </div>
     </div>`;
@@ -5477,7 +5930,12 @@ pageHandlers.settings = (root) => {
   delegate(root, "click", "[data-action='rename']", () => openRenameModal());
   delegate(root, "click", "[data-action='change-pin']", () => openChangePinModal());
   delegate(root, "click", "[data-action='switch-user']", () => logout());
+  delegate(root, "click", "[data-switch-to]", (event, node) => {
+    const user = findUser(node.dataset.switchTo);
+    if (user) switchToUser(user);
+  });
   delegate(root, "click", "[data-action='check-update']", () => checkForUpdate(true));
+  delegate(root, "click", "[data-action='force-update']", () => forceUpdate());
   delegate(root, "click", "[data-action='install']", () => promptInstall());
   delegate(root, "click", "[data-action='share']", async () => {
     const url = location.href.split("#")[0];
@@ -5587,7 +6045,7 @@ function renderAuth() {
               </div>`).join("")}
           </div>
         </div>
-        <div class="f-11 faint">Versão ${esc(APP.version)} · funciona offline</div>
+        <div class="f-11 faint">Versão ${esc(APP.version)} · build ${esc(APP.build)} · funciona offline</div>
       </div>
 
       <div class="auth-panel">
@@ -5890,9 +6348,12 @@ function seedDemoData(database) {
   const cat = (name) => database.categories.find((c) => c.name === name)?.id || null;
   const account = database.accounts[0];
   account.openingBalance = 2400;
+  account.name = "Conta do dia a dia";
+  account.bankId = "nubank";
+  account.color = "#820AD1";
 
   const card = {
-    id: uid("card"), name: "Cartão principal", brand: "Visa", color: "#4F46E5",
+    id: uid("card"), name: "Cartão principal", brand: "Mastercard", bankId: "nubank", color: "#820AD1",
     limit: 4500, closingDay: 22, dueDay: 1, accountId: account.id, archived: false,
   };
   database.cards.push(card);
@@ -5904,32 +6365,32 @@ function seedDemoData(database) {
     const month = addMonths(thisMonth(), -back);
     const jitter = (base, spread) => round2(base * (1 + (Math.random() - 0.5) * spread));
 
-    push({ type: "income", amount: salary, date: dayInMonth(month, 5), description: "Salário", categoryId: cat("Salário"), accountId: account.id, paid: true });
-    if (back % 3 === 0) push({ type: "income", amount: jitter(900, 0.5), date: dayInMonth(month, 18), description: "Freelance", categoryId: cat("Freelance"), accountId: account.id, paid: true });
+    push({ type: "income", amount: salary, date: dayInMonth(month, 5), description: "Salário", categoryId: cat("Salário"), accountId: account.id, method: "ted", paid: true });
+    if (back % 3 === 0) push({ type: "income", amount: jitter(900, 0.5), date: dayInMonth(month, 18), description: "Freelance", categoryId: cat("Freelance"), accountId: account.id, method: "pix", paid: true });
 
-    push({ type: "expense", amount: 1450, date: dayInMonth(month, 8), description: "Aluguel", categoryId: cat("Moradia"), accountId: account.id, paid: true });
-    push({ type: "expense", amount: jitter(240, 0.4), date: dayInMonth(month, 12), description: "Luz e água", categoryId: cat("Contas de casa"), accountId: account.id, paid: true });
-    push({ type: "expense", amount: jitter(780, 0.25), date: dayInMonth(month, 6), description: "Mercado do mês", categoryId: cat("Mercado"), cardId: card.id, accountId: account.id, paid: true });
-    push({ type: "expense", amount: jitter(320, 0.4), date: dayInMonth(month, 15), description: "Combustível", categoryId: cat("Transporte"), cardId: card.id, accountId: account.id, paid: true });
-    push({ type: "expense", amount: 55.9, date: dayInMonth(month, 10), description: "Streaming", categoryId: cat("Assinaturas"), cardId: card.id, accountId: account.id, paid: true });
-    push({ type: "expense", amount: jitter(210, 0.6), date: dayInMonth(month, 20), description: "Restaurante", categoryId: cat("Alimentação"), cardId: card.id, accountId: account.id, paid: true });
-    if (back % 2 === 0) push({ type: "expense", amount: jitter(180, 0.7), date: dayInMonth(month, 23), description: "Cinema e lazer", categoryId: cat("Lazer"), cardId: card.id, accountId: account.id, paid: true });
+    push({ type: "expense", amount: 1450, date: dayInMonth(month, 8), description: "Aluguel", categoryId: cat("Moradia"), accountId: account.id, method: "pix", paid: true });
+    push({ type: "expense", amount: jitter(240, 0.4), date: dayInMonth(month, 12), description: "Luz e água", categoryId: cat("Contas de casa"), accountId: account.id, method: "boleto", paid: true });
+    push({ type: "expense", amount: jitter(780, 0.25), date: dayInMonth(month, 6), description: "Mercado do mês", categoryId: cat("Mercado"), cardId: card.id, accountId: account.id, method: "credito", paid: true });
+    push({ type: "expense", amount: jitter(320, 0.4), date: dayInMonth(month, 15), description: "Combustível", categoryId: cat("Transporte"), cardId: card.id, accountId: account.id, method: "debito", paid: true });
+    push({ type: "expense", amount: 55.9, date: dayInMonth(month, 10), description: "Streaming", categoryId: cat("Assinaturas"), cardId: card.id, accountId: account.id, method: "credito", paid: true });
+    push({ type: "expense", amount: jitter(210, 0.6), date: dayInMonth(month, 20), description: "Restaurante", categoryId: cat("Alimentação"), cardId: card.id, accountId: account.id, method: "pix", paid: true });
+    if (back % 2 === 0) push({ type: "expense", amount: jitter(180, 0.7), date: dayInMonth(month, 23), description: "Cinema e lazer", categoryId: cat("Lazer"), cardId: card.id, accountId: account.id, method: "credito", paid: true });
   }
 
   // uma conta ainda em aberto, para o painel mostrar o alerta
-  push({ type: "expense", amount: 189.9, date: addDays(todayKey(), 4), description: "Plano de celular", categoryId: cat("Assinaturas"), accountId: account.id, paid: false });
+  push({ type: "expense", amount: 189.9, date: addDays(todayKey(), 4), description: "Plano de celular", categoryId: cat("Assinaturas"), accountId: account.id, method: "boleto", paid: false });
 
   database.recurring.push({
     id: uid("rec"), type: "expense", amount: 1450, description: "Aluguel",
     categoryId: cat("Moradia"), accountId: account.id, cardId: null,
     // começa no mês seguinte: os meses passados já têm os lançamentos do exemplo
-    frequency: "monthly", day: 8, startDate: `${addMonths(thisMonth(), 1)}-01`, endDate: null,
+    method: "pix", frequency: "monthly", day: 8, startDate: `${addMonths(thisMonth(), 1)}-01`, endDate: null,
     active: true, autoPay: true, notes: "",
   });
   database.recurring.push({
     id: uid("rec"), type: "income", amount: salary, description: "Salário",
     categoryId: cat("Salário"), accountId: account.id, cardId: null,
-    frequency: "monthly", day: 5, startDate: `${addMonths(thisMonth(), 1)}-01`, endDate: null,
+    method: "ted", frequency: "monthly", day: 5, startDate: `${addMonths(thisMonth(), 1)}-01`, endDate: null,
     active: true, autoPay: true, notes: "",
   });
 
@@ -5943,7 +6404,7 @@ function seedDemoData(database) {
   const goal = { id: uid("goal"), name: "Reserva de emergência", target: 15000, deadline: null, accountId: account.id, color: "#25D39B", emoji: "🛡️", createdAt: new Date().toISOString() };
   database.goals.push(goal);
   for (let back = 4; back >= 0; back--) {
-    push({ type: "expense", amount: 500, date: dayInMonth(addMonths(thisMonth(), -back), 10), description: `Guardado em ${goal.name}`, accountId: account.id, goalId: goal.id, paid: true });
+    push({ type: "expense", amount: 500, date: dayInMonth(addMonths(thisMonth(), -back), 10), description: `Guardado em ${goal.name}`, accountId: account.id, goalId: goal.id, method: "ted", paid: true });
   }
   database.goals.push({ id: uid("goal"), name: "Viagem", target: 6000, deadline: dayInMonth(addMonths(thisMonth(), 8), 15), accountId: account.id, color: "#EF8A17", emoji: "✈️", createdAt: new Date().toISOString() });
 }
@@ -6029,9 +6490,12 @@ function renderSidebar() {
       </div>`).join("")}
 
     <div style="flex:1"></div>
-    <button class="nav-item" data-action="switch-user">
+    <button class="nav-item" data-action="switch-user" title="Trocar de usuário">
       <span class="avatar avatar-sm" style="background:${alpha(state.user.color || PALETTE[0], 0.18)};color:${state.user.color || "var(--accent)"}">${esc(state.user.avatar || initialsOf(state.user.name))}</span>
-      <span class="nav-label grow truncate" style="text-align:left">${esc(state.user.name)}</span>
+      <span class="nav-label grow" style="text-align:left;min-width:0">
+        <span class="truncate" style="display:block">${esc(state.user.name)}</span>
+        <span class="f-11 faint">Trocar de usuário</span>
+      </span>
       ${icon("logout", 15)}
     </button>`;
 }
@@ -6041,11 +6505,17 @@ function renderTopbar() {
   const hide = db().profile.hideValues;
   const theme = prefs.read().theme;
 
+  const user = state.user;
   $("#topbar").innerHTML = `
     <div class="row gap-10 grow" style="min-width:0">
       <span class="mobile-only">${logoMark(30)}</span>
       <span class="f-14 w-700 truncate desktop-only">${esc(t(state.page))}</span>
     </div>
+    <button class="user-button" data-action="user-menu" aria-label="Perfil e troca de usuário">
+      <span class="avatar avatar-sm" style="background:${alpha(user.color || PALETTE[0], 0.2)};color:${user.color || "var(--accent)"}">${esc(user.avatar || initialsOf(user.name))}</span>
+      <span class="user-button-name truncate">${esc(user.name.split(" ")[0])}</span>
+      ${icon("chevronDown", 13)}
+    </button>
     <button class="btn btn-ghost btn-icon btn-sm" data-action="toggle-hide" title="${hide ? "Mostrar" : "Esconder"} valores" aria-label="${hide ? "Mostrar" : "Esconder"} valores">
       ${icon(hide ? "eyeOff" : "eye", 17)}
     </button>
@@ -6142,6 +6612,22 @@ function bindShellActions(root) {
 
   delegate(root, "click", "[data-action='alerts']", (event, node) => openAlertsPanel(node));
 
+  delegate(root, "click", "[data-action='user-menu']", (event, node) => {
+    const others = getUsers().filter((u) => u.id !== state.user.id);
+    showPopover(node, [
+      { label: `Meu perfil — ${state.user.name}`, icon: "user", onClick: () => go("settings") },
+      "-",
+      // atalho direto para cada outro perfil do aparelho: ainda pede o PIN
+      ...others.map((user) => ({
+        label: `Entrar como ${user.name}`,
+        icon: "users",
+        onClick: () => switchToUser(user),
+      })),
+      ...(others.length ? ["-"] : []),
+      { label: others.length ? "Ver todos os perfis" : "Trocar de usuário", icon: "logout", onClick: () => logout() },
+    ]);
+  });
+
   delegate(root, "click", "[data-action='month-prev']", () => { state.month = addMonths(state.month, -1); state.keepScroll = true; render(); });
   delegate(root, "click", "[data-action='month-next']", () => { state.month = addMonths(state.month, 1); state.keepScroll = true; render(); });
   delegate(root, "click", "[data-action='month-pick']", () => {
@@ -6187,6 +6673,16 @@ function bindShellActions(root) {
       if (target) go(target.key);
     }
   });
+}
+
+/** Sai do perfil atual e cai direto na tela de PIN do perfil escolhido. */
+function switchToUser(user) {
+  commitNow();
+  session.clear();
+  state.user = null;
+  state.db = null;
+  renderAuth();
+  showAuthStep("pin", { user });
 }
 
 function openAlertsPanel(anchor) {
@@ -6315,6 +6811,32 @@ async function checkForUpdate(verbose = false) {
   } catch {
     if (verbose) toast("Não consegui verificar agora. Tente com internet.", "err");
   }
+}
+
+/**
+ * Descarta todo o cache do app e recarrega buscando do servidor.
+ * Saída de emergência para quando o navegador insiste na cópia antiga.
+ * Os dados do usuário ficam no localStorage e não são tocados.
+ */
+async function forceUpdate() {
+  const ok = await confirmDialog({
+    title: "Forçar atualização",
+    message: "Vou apagar o cache do aplicativo e recarregar buscando a versão mais recente do servidor."
+      + "<br><br><b>Seus lançamentos não serão afetados.</b>",
+    confirmLabel: "Atualizar agora", iconName: "refresh",
+  });
+  if (!ok) return;
+
+  commitNow();
+  toast("Limpando cache…", "info");
+  try {
+    const registrations = await navigator.serviceWorker?.getRegistrations?.() || [];
+    await Promise.all(registrations.map((r) => r.unregister()));
+    const keys = await caches?.keys?.() || [];
+    await Promise.all(keys.map((key) => caches.delete(key)));
+  } catch {}
+  // a query obriga o navegador a ignorar a própria cópia em cache do HTML
+  location.replace(`${location.pathname}?v=${Date.now()}${location.hash}`);
 }
 
 /** Recarrega o painel quando o app fica aberto e o dia vira. */
