@@ -181,7 +181,8 @@ img { max-width: 100%; }
 .wrap { flex-wrap: wrap; }
 .grow { flex: 1; min-width: 0; }
 .gap-4 { gap: 4px; } .gap-6 { gap: 6px; } .gap-8 { gap: 8px; }
-.gap-12 { gap: 12px; } .gap-16 { gap: 16px; } .gap-20 { gap: 20px; }
+.gap-10 { gap: 10px; } .gap-12 { gap: 12px; } .gap-14 { gap: 14px; }
+.gap-16 { gap: 16px; } .gap-18 { gap: 18px; } .gap-20 { gap: 20px; }
 .mt-4{margin-top:4px}.mt-8{margin-top:8px}.mt-12{margin-top:12px}.mt-16{margin-top:16px}.mt-20{margin-top:20px}.mt-24{margin-top:24px}
 .mb-4{margin-bottom:4px}.mb-8{margin-bottom:8px}.mb-12{margin-bottom:12px}.mb-16{margin-bottom:16px}.mb-20{margin-bottom:20px}
 .f-11{font-size:11px}.f-12{font-size:12px}.f-13{font-size:13px}.f-14{font-size:14px}.f-15{font-size:15px}
@@ -667,6 +668,9 @@ img { max-width: 100%; }
 /* ---------- seletor de cor ---------- */
 .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 9px; }
 .swatch {
+  /* o item da grade é o <div> em volta, não o botão: sem width o botão
+     encolhe até o conteúdo (vazio) e vira um quadrado de 4px */
+  width: 100%;
   aspect-ratio: 1; border-radius: var(--r-md);
   border: 2px solid transparent; position: relative;
   transition: transform .12s, border-color .15s;
@@ -862,6 +866,21 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(var(--cal
 .user-button-name { font-size: 12.5px; font-weight: 700; max-width: 130px; }
 @media (max-width: 700px) { .user-button-name { display: none; } .user-button { padding: 4px; } }
 
+
+/* ---------- folha "Mais" do celular ---------- */
+.more-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
+.more-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px; border-radius: var(--r-md);
+  background: var(--surface-2); border: 1.5px solid transparent;
+  font-weight: 600; text-align: left;
+  transition: border-color .15s, background .15s;
+}
+.more-item:hover { border-color: var(--border-strong); }
+.more-item.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.more-icon { display: grid; place-items: center; flex: none; color: var(--muted); }
+.more-item.active .more-icon { color: var(--accent); }
+
 </style>
 </head>
 <body>
@@ -907,7 +926,7 @@ const APP = {
   name: "Gasto Esperto",
   tagline: "seu dinheiro com ideia boa",
   version: "1.2.0",
-  build: "59035aa4683f",
+  build: "1632b7259b04",
   ns: "gastoesperto",
 };
 
@@ -3431,15 +3450,24 @@ function openTransactionModal(existing = null, defaults = {}) {
 
       <div class="form-grid">
         ${field(t("description"), textInput("description", tx.description, { placeholder: isTransfer ? "Ex.: aluguel do mês" : "Ex.: mercado do mês", maxlength: 90 }), { span: isTransfer })}
-        ${isTransfer ? "" : field(t("category"), selectInput("categoryId", cats.map((c) => ({ value: c.id, label: `${c.emoji} ${c.name}` })), tx.categoryId, { placeholder: "Sem categoria" }))}
+        ${isTransfer ? "" : field(t("category"), selectInput("categoryId", [
+          ...cats.map((c) => ({ value: c.id, label: `${c.emoji} ${c.name}` })),
+          { value: "__new__", label: "➕ Criar nova categoria…" },
+        ], tx.categoryId, { placeholder: "Sem categoria" }))}
 
         ${field(t("date"), textInput("date", tx.date, { type: "date", required: true }))}
         ${isTransfer
-          ? field("Sai da conta", selectInput("accountId", accountOptions, tx.accountId, { required: true }))
-          : field(t("account"), selectInput("accountId", accountOptions, tx.accountId, { placeholder: "Nenhuma" }))}
+          ? field("Sai da conta", selectInput("accountId", accountsWithNew(), tx.accountId, { required: true }))
+          : field(t("account"), selectInput("accountId", accountsWithNew(), tx.accountId, { placeholder: "Nenhuma" }))}
 
-        ${isTransfer ? field(t("category"), selectInput("categoryId", categoriesOf("expense").map((c) => ({ value: c.id, label: `${c.emoji} ${c.name}` })), tx.categoryId, { placeholder: "Sem categoria" }), { span: true, hint: "Só usada quando o dinheiro vai para fora" }) : ""}
-        ${!isTransfer && cardOptions.length ? field(t("card"), selectInput("cardId", cardOptions, tx.cardId, { placeholder: "Sem cartão" })) : ""}
+        ${isTransfer ? field(t("category"), selectInput("categoryId", [
+          ...categoriesOf("expense").map((c) => ({ value: c.id, label: `${c.emoji} ${c.name}` })),
+          { value: "__new__", label: "➕ Criar nova categoria…" },
+        ], tx.categoryId, { placeholder: "Sem categoria" }), { span: true, hint: "Só usada quando o dinheiro vai para fora" }) : ""}
+        ${isTransfer ? "" : field(t("card"), selectInput("cardId", [
+          ...activeCards().map((c) => ({ value: c.id, label: c.name })),
+          { value: "__new__", label: "➕ Cadastrar cartão…" },
+        ], tx.cardId, { placeholder: "Sem cartão" }))}
 
         ${!isEdit && type === "expense" ? field("Parcelas", textInput("installments", "1", { type: "number", min: 1, max: 72, inputmode: "numeric" }), { hint: "Acima de 1 gera a série completa" }) : ""}
       </div>
@@ -3489,6 +3517,37 @@ function openTransactionModal(existing = null, defaults = {}) {
         render(event.detail);
       });
       cancel.addEventListener("click", () => close());
+
+      // guarda o que já foi digitado antes de redesenhar o formulário
+      const keepValues = () => {
+        const form = readForm(body);
+        // "__new__" é só um gatilho de menu: se o cadastro for cancelado
+        // ele não pode sobrar guardado como se fosse uma escolha real
+        for (const key of Object.keys(form)) if (form[key] === "__new__") form[key] = "";
+        Object.assign(tx, {
+          ...form,
+          amount: form.amount ? parseMoney(form.amount) : "",
+          paid: form.paid,
+        });
+      };
+
+      // "➕ Criar…" nos seletores abre o cadastro e já volta com ele escolhido
+      body.addEventListener("change", (event) => {
+        const select = event.target;
+        if (select.value !== "__new__") return;
+        const type = readForm(body).type;
+        keepValues();
+        select.value = "";
+
+        if (select.name === "categoryId") {
+          const kind = type === "income" ? "income" : "expense";
+          openCategoryModal(null, kind, { onCreated: (cat) => { tx.categoryId = cat.id; render(type); } });
+        } else if (select.name === "accountId") {
+          openAccountModal(null, { onCreated: (acc) => { tx.accountId = acc.id; render(type); } });
+        } else if (select.name === "cardId") {
+          openCardModal(null, { onCreated: (card) => { tx.cardId = card.id; render(type); } });
+        }
+      });
 
       // explica, enquanto a pessoa digita, se aquilo vai contar como gasto
       const updateTransferHint = () => {
@@ -3566,6 +3625,12 @@ function openTransactionModal(existing = null, defaults = {}) {
   });
   return modal;
 }
+
+/** Contas do usuário mais a opção de cadastrar outra na hora. */
+const accountsWithNew = () => [
+  ...activeAccounts().map((a) => ({ value: a.id, label: a.name })),
+  { value: "__new__", label: "➕ Cadastrar outra conta…" },
+];
 
 /**
  * Campo "Para quem": texto livre com sugestões das contas do usuário e de
@@ -3688,7 +3753,7 @@ const ACCOUNT_TYPES = [
   { value: "investment", label: "Investimento" },
 ];
 
-function openAccountModal(existing = null) {
+function openAccountModal(existing = null, { onCreated = null } = {}) {
   const account = existing || {
     name: "", type: "checking", bankId: "", color: PALETTE[0],
     openingBalance: 0, openingDate: `${thisMonth()}-01`, archived: false,
@@ -3744,7 +3809,7 @@ function openAccountModal(existing = null) {
         event.preventDefault();
         const form = readForm(body);
         if (!validate(body, { name: (v) => (v.trim() ? "" : "Dê um nome para a conta.") })) return;
-        upsert("accounts", {
+        const saved = upsert("accounts", {
           ...(existing ? { id: existing.id } : {}),
           name: form.name.trim(), type: form.type, bankId: form.bankId || "outro",
           color: form.color, openingBalance: parseMoney(form.openingBalance),
@@ -3754,6 +3819,7 @@ function openAccountModal(existing = null) {
         commit();
         toast(existing ? "Conta atualizada" : "Conta criada");
         close();
+        if (!existing) onCreated?.(saved);
       });
     },
   });
@@ -3764,7 +3830,7 @@ function openAccountModal(existing = null) {
    -------------------------------------------------------------------------- */
 const CARD_BRANDS = ["Visa", "Mastercard", "Elo", "American Express", "Hipercard", "Outro"];
 
-function openCardModal(existing = null) {
+function openCardModal(existing = null, { onCreated = null } = {}) {
   const card = existing || {
     name: "", brand: "Visa", bankId: "", color: "#4F46E5", limit: 0,
     closingDay: 1, dueDay: 10, accountId: activeAccounts()[0]?.id || "", archived: false,
@@ -3781,7 +3847,7 @@ function openCardModal(existing = null) {
       ${field("Limite", moneyInput("limit", card.limit ? num(card.limit, 2) : ""))}
       ${field("Fecha no", selectInput("closingDay", dayOptions, card.closingDay))}
       ${field("Vence no", selectInput("dueDay", dayOptions, card.dueDay))}
-      ${field("Conta de pagamento", selectInput("accountId", activeAccounts().map((a) => ({ value: a.id, label: a.name })), card.accountId, { placeholder: "Nenhuma" }), { span: true })}
+      ${field("Conta que paga a fatura", selectInput("accountId", accountsWithNew(), card.accountId, { placeholder: "Nenhuma" }), { span: true, hint: "Vincule para saber de onde sai o dinheiro no vencimento" })}
       ${field("Cor", colorPicker("color", card.color), { span: true })}
     </div>
     ${existing ? `<div class="card card-pad-sm" style="background:var(--surface-2)">${switchInput("archived", card.archived, "Arquivar cartão")}</div>` : ""}`;
@@ -3832,7 +3898,7 @@ function openCardModal(existing = null) {
         event.preventDefault();
         const form = readForm(body);
         if (!validate(body, { name: (v) => (v.trim() ? "" : "Dê um apelido ao cartão.") })) return;
-        upsert("cards", {
+        const saved = upsert("cards", {
           ...(existing ? { id: existing.id } : {}),
           name: form.name.trim(), brand: form.brand, bankId: form.bankId || "outro", color: form.color,
           limit: parseMoney(form.limit),
@@ -3842,6 +3908,7 @@ function openCardModal(existing = null) {
         commit();
         toast(existing ? "Cartão atualizado" : "Cartão criado");
         close();
+        if (!existing) onCreated?.(saved);
       });
     },
   });
@@ -3882,7 +3949,7 @@ function creditCardVisual(card) {
 /* --------------------------------------------------------------------------
    Categoria
    -------------------------------------------------------------------------- */
-function openCategoryModal(existing = null, kind = "expense") {
+function openCategoryModal(existing = null, kind = "expense", { onCreated = null } = {}) {
   const category = existing || { name: "", kind, emoji: "📦", color: PALETTE[0], essential: false, archived: false };
   const body = el("form", { class: "col gap-16", id: "catForm" });
   body.innerHTML = `
@@ -3929,7 +3996,7 @@ function openCategoryModal(existing = null, kind = "expense") {
         event.preventDefault();
         const form = readForm(body);
         if (!validate(body, { name: (v) => (v.trim() ? "" : "Dê um nome à categoria.") })) return;
-        upsert("categories", {
+        const saved = upsert("categories", {
           ...(existing ? { id: existing.id } : {}),
           name: form.name.trim(), kind: form.kind, emoji: form.emoji, color: form.color,
           essential: !!form.essential, archived: !!form.archived,
@@ -3937,6 +4004,7 @@ function openCategoryModal(existing = null, kind = "expense") {
         commit();
         toast(existing ? "Categoria atualizada" : "Categoria criada");
         close();
+        if (!existing) onCreated?.(saved);
       });
     },
   });
@@ -4147,8 +4215,11 @@ function openRecurringModal(existing = null) {
       <div class="form-grid">
         ${field("Frequência", selectInput("frequency", Object.entries(FREQUENCIES).map(([value, f]) => ({ value, label: f.label })), rule.frequency))}
         ${field("Dia do mês", selectInput("day", Array.from({ length: 31 }, (_, i) => ({ value: i + 1, label: `Dia ${i + 1}` })), rule.day), { hint: "Usado nas frequências mensais" })}
-        ${field(t("category"), selectInput("categoryId", cats.map((c) => ({ value: c.id, label: `${c.emoji} ${c.name}` })), rule.categoryId, { placeholder: "Sem categoria" }))}
-        ${field(t("account"), selectInput("accountId", activeAccounts().map((a) => ({ value: a.id, label: a.name })), rule.accountId, { placeholder: "Nenhuma" }))}
+        ${field(t("category"), selectInput("categoryId", [
+          ...cats.map((c) => ({ value: c.id, label: `${c.emoji} ${c.name}` })),
+          { value: "__new__", label: "➕ Criar nova categoria…" },
+        ], rule.categoryId, { placeholder: "Sem categoria" }))}
+        ${field(t("account"), selectInput("accountId", accountsWithNew(), rule.accountId, { placeholder: "Nenhuma" }))}
         ${activeCards().length && type === "expense" ? field(t("card"), selectInput("cardId", activeCards().map((c) => ({ value: c.id, label: c.name })), rule.cardId, { placeholder: "Sem cartão" })) : ""}
         ${field("Começa em", textInput("startDate", rule.startDate, { type: "date", required: true }))}
         ${field("Termina em", textInput("endDate", rule.endDate || "", { type: "date" }), { hint: "Deixe vazio para não ter fim" })}
@@ -4194,6 +4265,20 @@ function openRecurringModal(existing = null) {
       body.addEventListener("segchange", (event) => {
         Object.assign(rule, readForm(body), { amount: parseMoney(readForm(body).amount) || "" });
         render(event.detail);
+      });
+      body.addEventListener("change", (event) => {
+        const select = event.target;
+        if (select.value !== "__new__") return;
+        const form = readForm(body);
+        for (const key of Object.keys(form)) if (form[key] === "__new__") form[key] = "";
+        Object.assign(rule, form, { amount: parseMoney(form.amount) || "" });
+        select.value = "";
+        const kind = form.type === "income" ? "income" : "expense";
+        if (select.name === "categoryId") {
+          openCategoryModal(null, kind, { onCreated: (cat) => { rule.categoryId = cat.id; render(form.type); } });
+        } else if (select.name === "accountId") {
+          openAccountModal(null, { onCreated: (acc) => { rule.accountId = acc.id; render(form.type); } });
+        }
       });
       body.addEventListener("submit", (event) => {
         event.preventDefault();
@@ -5726,6 +5811,30 @@ function pageSettings() {
       </div>
     </div>
 
+    <section class="card mb-16">
+      <div class="row-between wrap gap-12">
+        <div class="row gap-12" style="min-width:0">
+          <span class="kpi-icon" style="background:var(--accent-soft);color:var(--accent);width:38px;height:38px">${icon("refresh", 19)}</span>
+          <div style="min-width:0">
+            <div class="f-14 w-700">Versão do aplicativo</div>
+            <div class="f-12 muted mt-4">
+              ${esc(APP.version)} · build <code style="letter-spacing:.04em">${esc(APP.build)}</code>
+            </div>
+          </div>
+        </div>
+        <div class="row gap-8 wrap">
+          <button class="btn btn-primary" data-action="check-update">${icon("refresh", 15)} Procurar atualização</button>
+          <button class="btn" data-action="force-update">${icon("zap", 15)} Forçar</button>
+        </div>
+      </div>
+      <div class="f-11 faint mt-12" id="swStatus"></div>
+      <div class="f-11 muted mt-8" style="line-height:1.55">
+        <b>Procurar</b> verifica se há versão nova e avisa.
+        <b>Forçar</b> apaga o cache do app e recarrega do servidor — use quando o
+        navegador insistir na versão antiga. Seus lançamentos não são afetados.
+      </div>
+    </section>
+
     <div class="grid grid-main">
       <div class="col gap-16">
         ${sectionCard("Aparência",
@@ -5849,28 +5958,10 @@ function pageSettings() {
               <b>${esc(APP.name)}</b> versão ${esc(APP.version)}<br>
               Funciona offline, instala como aplicativo e guarda tudo no seu aparelho.
             </div>
-            <div class="card card-pad-sm row-between" style="background:var(--surface-2)">
-              <span class="eyebrow">Build carregado</span>
-              <code class="f-12 w-700" style="letter-spacing:.04em">${esc(APP.build)}</code>
-            </div>
             <div class="row gap-8 wrap">
-              <button class="btn btn-sm" data-action="check-update">${icon("refresh", 14)} Procurar atualização</button>
               <button class="btn btn-sm" data-action="install">${icon("download", 14)} Instalar no aparelho</button>
               <button class="btn btn-sm" data-action="share">${icon("share", 14)} Compartilhar</button>
             </div>
-            <div class="f-11 faint" id="swStatus"></div>
-            <details>
-              <summary class="f-12 w-600 muted" style="cursor:pointer;padding:4px 0">O app não atualizou?</summary>
-              <div class="col gap-10 mt-12 f-12 muted" style="line-height:1.6">
-                <p>Compare o código acima com o da versão publicada. Se estiverem
-                diferentes, o navegador guardou uma cópia antiga.</p>
-                <button class="btn btn-sm btn-danger" data-action="force-update">
-                  ${icon("refresh", 14)} Forçar atualização agora
-                </button>
-                <p class="f-11 faint">Limpa o cache do app e recarrega. Seus lançamentos não são afetados —
-                eles ficam em outro lugar do navegador.</p>
-              </div>
-            </details>
           </div>`)}
       </div>
     </div>`;
@@ -6439,8 +6530,12 @@ const NAV = [
 const ALL_NAV = NAV.flatMap((g) => g.items);
 const navItem = (key) => ALL_NAV.find((i) => i.key === key) || ALL_NAV[0];
 
-/** Atalhos da barra inferior no celular. */
-const TABS = ["dashboard", "transactions", "budgets", "goals", "settings"];
+/**
+ * Barra inferior do celular. Só cabem cinco itens, e a barra lateral não
+ * existe nessa largura — por isso o quinto é "Mais", que abre a lista
+ * completa. Sem ele, metade das páginas ficaria inalcançável no celular.
+ */
+const TABS = ["dashboard", "transactions", "wallets", "budgets", "more"];
 
 /* --------------------------------------------------------------------------
    Shell
@@ -6530,7 +6625,15 @@ function renderTopbar() {
 }
 
 function renderTabbar() {
+  const hidden = ALL_NAV.filter((i) => !TABS.includes(i.key)).map((i) => i.key);
   $("#tabbar").innerHTML = TABS.map((key) => {
+    if (key === "more") {
+      // fica marcado quando a página aberta é uma das que vivem aqui dentro
+      const active = hidden.includes(state.page);
+      return `<button class="tab-item ${active ? "active" : ""}" data-action="more-menu">
+        ${icon("grid", 20)}<span>Mais</span>
+      </button>`;
+    }
     const item = navItem(key);
     return `<button class="tab-item ${state.page === key ? "active" : ""}" data-nav="${key}">
       ${icon(item.icon, 20)}
@@ -6540,9 +6643,48 @@ function renderTabbar() {
 }
 
 const shortLabel = (key) => ({
-  dashboard: "Painel", transactions: "Lançar", budgets: "Orçamento",
-  goals: "Metas", settings: "Ajustes",
+  dashboard: "Painel", transactions: "Lançar", wallets: "Cartões",
+  budgets: "Orçamento", goals: "Metas", settings: "Ajustes",
 }[key] || t(key));
+
+/** Folha com todas as páginas — o caminho do celular para o que não cabe. */
+function openMoreMenu() {
+  const body = el("div", { class: "col gap-16" });
+  body.innerHTML = `
+    ${NAV.map((group) => `
+      <div>
+        <div class="nav-group-label" style="padding-left:2px">${esc(group.group)}</div>
+        <div class="more-grid">
+          ${group.items.map((item) => `
+            <button class="more-item ${state.page === item.key ? "active" : ""}" data-nav="${item.key}">
+              <span class="more-icon">${icon(item.icon, 20)}</span>
+              <span class="f-12 w-600">${esc(t(item.key))}</span>
+            </button>`).join("")}
+        </div>
+      </div>`).join("")}
+    <div class="divider" style="margin:0"></div>
+    <button class="user-card" data-action="check-update">
+      <span class="avatar-icon" style="background:var(--accent-soft);color:var(--accent)">${icon("refresh", 18)}</span>
+      <span class="grow" style="min-width:0">
+        <span class="list-title" style="display:block">Buscar atualização</span>
+        <span class="list-meta">versão ${esc(APP.version)} · build ${esc(APP.build)}</span>
+      </span>
+      <span class="faint">${icon("chevronRight", 16)}</span>
+    </button>
+    <button class="user-card" data-action="switch-user">
+      <span class="avatar" style="background:${alpha(state.user.color || PALETTE[0], 0.18)};color:${state.user.color || "var(--accent)"}">${esc(state.user.avatar || initialsOf(state.user.name))}</span>
+      <span class="grow" style="min-width:0">
+        <span class="list-title truncate" style="display:block">${esc(state.user.name)}</span>
+        <span class="list-meta">Trocar de usuário</span>
+      </span>
+      <span class="faint">${icon("logout", 16)}</span>
+    </button>`;
+
+  const modal = openModal({ title: "Todas as seções", iconName: "grid", body, footer: false, size: "sm" });
+  delegate(body, "click", "[data-nav]", (event, node) => { modal.close(); go(node.dataset.nav); });
+  delegate(body, "click", "[data-action='switch-user']", () => { modal.close(); logout(); });
+  delegate(body, "click", "[data-action='check-update']", () => { modal.close(); checkForUpdate(true); });
+}
 
 /* --------------------------------------------------------------------------
    Render principal
@@ -6610,6 +6752,7 @@ function bindShellActions(root) {
     render();
   });
 
+  delegate(root, "click", "[data-action='more-menu']", () => openMoreMenu());
   delegate(root, "click", "[data-action='alerts']", (event, node) => openAlertsPanel(node));
 
   delegate(root, "click", "[data-action='user-menu']", (event, node) => {
@@ -6625,6 +6768,8 @@ function bindShellActions(root) {
       })),
       ...(others.length ? ["-"] : []),
       { label: others.length ? "Ver todos os perfis" : "Trocar de usuário", icon: "logout", onClick: () => logout() },
+      "-",
+      { label: "Buscar atualização", icon: "refresh", badge: APP.build.slice(0, 6), onClick: () => checkForUpdate(true) },
     ]);
   });
 
@@ -6805,7 +6950,7 @@ async function checkForUpdate(verbose = false) {
       showUpdateBanner(swRegistration);
       if (verbose) toast("Nova versão encontrada!", "ok");
     } else if (verbose) {
-      toast("Você já está na versão mais recente.", "info");
+      toast(`Você já está na versão mais recente (build ${APP.build}).`, "info", 5000);
     }
     if (status) status.textContent = `Última verificação: agora · versão ${APP.version}`;
   } catch {
