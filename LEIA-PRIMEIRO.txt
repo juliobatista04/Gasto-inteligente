@@ -1,52 +1,61 @@
-Gasto Esperto 1.3.0 — build 737d0a7cb19f
+Gasto Esperto 1.3.0 — build 54cb050ade47
 ==========================================
 
-ATENÇÃO: AGORA SÃO 6 ARQUIVOS, NÃO 5.
-O novo é version.json. É pequeno, mas é ele que faz o app
-perceber que existe versão nova. Sem ele, nada muda.
+SÃO 6 ARQUIVOS (o version.json é novo e é essencial).
 
-O QUE FOI CORRIGIDO
-  O motivo de a atualização não aparecer mesmo com os arquivos
-  certos no servidor. O aviso dependia de um evento do navegador
-  que passava enquanto o app estava fechado: a versão nova ficava
-  pronta, parada, e ninguém avisava. Cada abertura repetia o
-  silêncio.
+O QUE MUDOU AGORA
+  Guardar dinheiro numa meta não conta mais como gasto.
 
-  Agora o app simplesmente pergunta ao servidor qual versão está
-  publicada e compara com a que ele tem. Sem evento, sem depender
-  do cache. Ele pergunta ao abrir, sempre que você volta pro app
-  e a cada 15 minutos.
+  Antes, "Guardar na meta" era registrado como despesa. Guardar
+  R$ 500 aparecia como R$ 500 gastos: entrava no gráfico de
+  para onde foi seu dinheiro, empurrava o orçamento e derrubava
+  a sobra do mês.
 
-  O botão "Atualizar" também não desiste mais: se o caminho
-  normal não pegar em 1,8 s, ele apaga o cache e recarrega
-  direto do servidor.
+  O pior era no score. A taxa de poupança é calculada como
+  (renda − despesa). Como guardar aumentava a despesa, guardar
+  DERRUBAVA sua nota de poupança — embaixo de um texto que dizia
+  "Você guardou X% da renda". O app punia justamente o que ele
+  existe para incentivar.
 
-NOVO EM AJUSTES
-  A tela de Ajustes mostra as duas versões lado a lado:
+  Com renda 3.000, gasto 1.000 e 500 guardados:
+      despesa do mês   1.500  ->  1.000
+      sobra do mês     1.500  ->  2.000
+      taxa de poupança   50%  ->   66,7%
+      saldo da conta   1.500  ->  1.500  (não muda: o dinheiro
+                                          saiu da conta mesmo)
 
-      instalada 802618c370bf · no servidor 737d0a7cb19f — desatualizado
+  Retirar da meta também não conta mais como receita.
 
-  É assim que você confere se o que subiu chegou no aparelho,
-  sem adivinhar.
+  O guardado não sumiu de vista — saiu do lugar errado:
+    · o card "Sobrou" no painel mostra quanto foi para metas
+    · o relatório tem lista própria de guardado por meta
+    · na lista, guardar aparece em azul com o cofrinho e o nome
+      da meta, não em vermelho de gasto
+    · no CSV tem rótulo próprio ("Guardado em meta")
+
+  E o "quanto posso gastar por dia" agora desconta o que já foi
+  guardado: esse dinheiro não está mais disponível para gastar.
+
+TAMBÉM NESTA VERSÃO (do pacote anterior)
+  A correção da atualização que não aparecia. O app agora
+  pergunta ao servidor qual versão está publicada, em vez de
+  depender de um evento que passava enquanto ele estava fechado.
+  Ajustes mostra "instalada X · no servidor Y".
 
 COMO SUBIR
   1. github.com/juliobatista04/Gasto-inteligente
   2. "Add file" > "Upload files"
   3. Arraste os 6 arquivos desta pasta (menos este .txt)
   4. Commit changes
-  5. Espere ~1 minuto (o GitHub publica sozinho)
+  5. Espere ~1 minuto
 
-DEPOIS DE SUBIR — FAÇA ISTO UMA VEZ
-  Seu aparelho está preso na versão antiga, e a versão antiga é
-  justamente a que não sabe se atualizar. Para destravar, uma vez só:
+DEPOIS DE SUBIR — UMA VEZ SÓ
+  Seu aparelho está preso numa versão que ainda não sabe se
+  atualizar sozinha. Para destravar:
+      Ajustes > "Forçar"
+  ou abra: juliobatista04.github.io/Gasto-inteligente/?nova
 
-  · No app: Ajustes > "Forçar"
-  · Ou abra no navegador com um endereço diferente:
-    juliobatista04.github.io/Gasto-inteligente/?nova
+  Daí em diante o aviso aparece sozinho.
+  Seus lançamentos não são afetados.
 
-  Da próxima vez em diante, o aviso aparece sozinho.
-  Seus lançamentos não são afetados por nada disso.
-
-QUEM JÁ TEM O APP
-  As pessoas para quem você passou precisam do mesmo passo único
-  acima. Depois disso, atualizam sozinhas.
+  Quem já tem o app instalado precisa do mesmo passo único.

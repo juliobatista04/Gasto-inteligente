@@ -934,7 +934,7 @@ const APP = {
   name: "Gasto Esperto",
   tagline: "seu dinheiro com ideia boa",
   version: "1.3.0",
-  build: "737d0a7cb19f",
+  build: "54cb050ade47",
   ns: "gastoesperto",
 };
 
@@ -2048,15 +2048,34 @@ function detachRecurring(ruleId, { keepPast = true } = {}) {
    ========================================================================== */
 
 /*
- * Transferência tem dois significados bem diferentes:
- *   · entre contas suas  — o dinheiro continua com você, não é gasto
- *   · para outra pessoa  — o dinheiro foi embora, conta como gasto
- * Estas três funções são a única fonte de verdade sobre isso; todo cálculo
- * de despesa passa por `isOutflow` para os dois casos nunca divergirem.
+ * Nem todo dinheiro que sai da conta é gasto. Há três movimentos diferentes:
+ *
+ *   · gasto            — o dinheiro foi embora e não volta
+ *   · entre bolsos seus— mudou de lugar e continua seu (transferência entre
+ *                        contas suas, e dinheiro guardado numa meta)
+ *   · receita          — dinheiro novo entrando
+ *
+ * Guardar numa meta cai no segundo caso e não pode contar como despesa: se
+ * contasse, guardar R$ 500 apareceria como R$ 500 gastos, derrubaria o saldo
+ * do mês e — o pior — derrubaria a própria taxa de poupança, que é calculada
+ * a partir da despesa. O app diria que você poupou menos porque você poupou.
+ *
+ * Retirar da meta é o espelho: não é receita, é dinheiro seu voltando para a
+ * conta. Contar como receita inflaria a renda do mês e a taxa de poupança.
+ *
+ * Estas funções são a única fonte de verdade sobre a classificação; todo
+ * cálculo passa por elas para os casos nunca divergirem entre si.
  */
 const isInternalTransfer = (tx) => tx.type === "transfer" && !!tx.toAccountId;
 const isExternalTransfer = (tx) => tx.type === "transfer" && !tx.toAccountId;
-const isOutflow = (tx) => tx.type === "expense" || isExternalTransfer(tx);
+const isGoalDeposit = (tx) => !!tx.goalId && tx.type === "expense";
+const isGoalWithdrawal = (tx) => !!tx.goalId && tx.type === "income";
+const isOutflow = (tx) => (tx.type === "expense" && !tx.goalId) || isExternalTransfer(tx);
+const isInflow = (tx) => tx.type === "income" && !tx.goalId;
+/** Movimento entre bolsos seus: mexe no saldo da conta, não no patrimônio. */
+const isNeutral = (tx) => isInternalTransfer(tx) || !!tx.goalId;
+/** Efeito no saldo da conta — sai da conta mesmo quando não é gasto. */
+const signedAmount = (tx) => (tx.type === "income" ? tx.amount : -tx.amount);
 
 /** Para quem você já transferiu — alimenta as sugestões do formulário. */
 function transferNames() {
@@ -2096,19 +2115,27 @@ function txBetween(from, to) {
 function monthSummary(monthStr) {
   return cached(`sum:${monthStr}`, () => {
     const list = txOfMonth(monthStr);
-    const income = sum(list.filter((tx) => tx.type === "income"), (tx) => tx.amount);
+    const income = sum(list.filter(isInflow), (tx) => tx.amount);
     const expense = sum(list.filter(isOutflow), (tx) => tx.amount);
     const paidExpense = sum(list.filter((tx) => isOutflow(tx) && tx.paid), (tx) => tx.amount);
-    const receivedIncome = sum(list.filter((tx) => tx.type === "income" && tx.paid), (tx) => tx.amount);
+    const receivedIncome = sum(list.filter((tx) => isInflow(tx) && tx.paid), (tx) => tx.amount);
     const pendingExpense = round2(expense - paidExpense);
     const pendingIncome = round2(income - receivedIncome);
     const essentialIds = new Set(db().categories.filter((c) => c.essential).map((c) => c.id));
     const essential = sum(list.filter((tx) => isOutflow(tx) && essentialIds.has(tx.categoryId)), (tx) => tx.amount);
+    // guardado e retirado ficam de fora de receita e despesa, mas seguem visíveis:
+    // é a resposta para "sobrou pouco no mês porque gastei ou porque guardei?"
+    const saved = sum(list.filter(isGoalDeposit), (tx) => tx.amount);
+    const withdrawn = sum(list.filter(isGoalWithdrawal), (tx) => tx.amount);
+    const balance = round2(income - expense);
     return {
-      month: monthStr, income, expense, balance: round2(income - expense),
+      month: monthStr, income, expense, balance,
       paidExpense, receivedIncome, pendingExpense, pendingIncome,
       essential, discretionary: round2(expense - essential),
-      savingsRate: income > 0 ? clamp(((income - expense) / income) * 100, -999, 100) : 0,
+      saved, withdrawn, netSaved: round2(saved - withdrawn),
+      // quanto da sobra ainda está solto na conta, já descontado o que foi guardado
+      free: round2(balance - saved + withdrawn),
+      savingsRate: income > 0 ? clamp((balance / income) * 100, -999, 100) : 0,
       count: list.length,
     };
   });
@@ -2165,10 +2192,17 @@ function cardUsage(cardId) {
   return round2(sum(open, (tx) => tx.amount));
 }
 
-/** Gastos por categoria no período, ordenados do maior para o menor. */
+/**
+ * Totais por categoria no período, do maior para o menor.
+ * `kind`: "expense" (gastos), "income" (receitas) ou "saved" (guardado em metas,
+ * que fica em lista própria justamente por não ser gasto).
+ */
 function byCategory(list, kind = "expense") {
   const totals = new Map();
-  const matches = kind === "expense" ? isOutflow : (tx) => tx.type === kind;
+  const matches = kind === "expense" ? isOutflow
+    : kind === "income" ? isInflow
+    : kind === "saved" ? isGoalDeposit
+    : (tx) => tx.type === kind;
   for (const tx of list) {
     if (!matches(tx)) continue;
     // dinheiro guardado em meta não é "sem categoria": aparece com o nome da meta
@@ -2198,7 +2232,7 @@ function byCategory(list, kind = "expense") {
 /** Totais por forma de pagamento no período, do maior para o menor. */
 function byMethod(list, kind = "expense") {
   const totals = new Map();
-  const matches = kind === "expense" ? isOutflow : (tx) => tx.type === kind;
+  const matches = kind === "expense" ? isOutflow : kind === "income" ? isInflow : (tx) => tx.type === kind;
   for (const tx of list) {
     if (!matches(tx) || !tx.method) continue;
     totals.set(tx.method, round2((totals.get(tx.method) || 0) + tx.amount));
@@ -2282,9 +2316,12 @@ function healthScore(monthStr) {
     const series = monthlySeries(monthStr, 6).filter((m) => m.count > 0);
     const parts = [];
 
-    // 1. taxa de poupança (peso 30)
+    // 1. taxa de poupança (peso 30) — o que sobrou da renda depois dos gastos.
+    // Guardar numa meta não derruba isto: dinheiro guardado continua sobra.
     parts.push({ key: "poupança", weight: 30, value: clamp((now.savingsRate / 25) * 100, 0, 100),
-      hint: `Você guardou ${pctText(Math.max(0, now.savingsRate))} da renda` });
+      hint: now.netSaved > 0
+        ? `Sobrou ${pctText(Math.max(0, now.savingsRate))} da renda — ${money(now.netSaved)} foi para metas`
+        : `Sobrou ${pctText(Math.max(0, now.savingsRate))} da renda` });
 
     // 2. despesas essenciais sob controle (peso 20) — ideal até 55% da renda
     const essentialShare = now.income > 0 ? (now.essential / now.income) * 100 : 100;
@@ -2330,7 +2367,9 @@ function forecast(monthStr) {
     remaining, dailyBurn: round2(burn),
     projectedExpense,
     projectedBalance: round2(summary.income - projectedExpense),
-    safeDaily: remaining > 0 ? round2(Math.max(0, summary.income - summary.expense) / remaining) : 0,
+    // quanto ainda dá para gastar por dia: parte do que sobrou solto na conta,
+    // não da sobra total — o que já foi para uma meta não está disponível
+    safeDaily: remaining > 0 ? round2(Math.max(0, summary.free) / remaining) : 0,
   };
 }
 
@@ -2339,7 +2378,7 @@ function upcoming(days = 14) {
   const from = todayKey();
   const to = addDays(from, days);
   return db().transactions
-    .filter((tx) => !tx.paid && !isInternalTransfer(tx) && inRange(tx.date, addDays(from, -60), to))
+    .filter((tx) => !tx.paid && !isNeutral(tx) && inRange(tx.date, addDays(from, -60), to))
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
@@ -2512,16 +2551,20 @@ function transactionsToCsv(list) {
   const head = ["Data", "Tipo", "Descrição", "Categoria", "Conta", "Destino", "Cartão", "Pagamento", "Valor", "Pago", "Parcela", "Observações"];
   const body = list.map((tx) => [
     tx.date,
-    tx.type === "income" ? "Receita"
+    isGoalDeposit(tx) ? "Guardado em meta"
+      : isGoalWithdrawal(tx) ? "Retirado de meta"
+      : tx.type === "income" ? "Receita"
       : isExternalTransfer(tx) ? "Transferência enviada"
       : tx.type === "transfer" ? "Transferência entre contas" : "Despesa",
     tx.description,
-    catById(tx.categoryId)?.name || "",
+    catById(tx.categoryId)?.name || goalById(tx.goalId)?.name || "",
     accById(tx.accountId)?.name || "",
     tx.toName || accById(tx.toAccountId)?.name || "",
     cardById(tx.cardId)?.name || "",
     methodLabel(tx.method) || "",
-    (isOutflow(tx) ? -tx.amount : tx.amount).toFixed(2).replace(".", ","),
+    // o sinal segue o efeito no saldo da conta, não a classificação: guardar
+    // sai negativo porque o dinheiro deixou a conta, ainda que não seja gasto
+    signedAmount(tx).toFixed(2).replace(".", ","),
     tx.paid ? "Sim" : "Não",
     tx.installment ? `${tx.installment.index}/${tx.installment.of}` : "",
     tx.notes || "",
@@ -3350,22 +3393,31 @@ function txRow(tx, { showDate = false, compact = false } = {}) {
   const isIncome = tx.type === "income";
   const isTransfer = tx.type === "transfer";
   const external = isExternalTransfer(tx);
-  const color = external ? "var(--expense)" : isTransfer ? "var(--info)" : isIncome ? "var(--income)" : "var(--expense)";
+  const goal = tx.goalId ? goalById(tx.goalId) : null;
+  // guardar não é gasto: sai da conta, mas continua seu. Vermelho de despesa
+  // aqui daria a mesma leitura errada que o cálculo dava — que você perdeu.
+  const color = tx.goalId ? "var(--info)"
+    : external ? "var(--expense)" : isTransfer ? "var(--info)" : isIncome ? "var(--income)" : "var(--expense)";
   const late = !tx.paid && tx.date < todayKey();
 
   const meta = [
     showDate ? dateLabel(tx.date) : null,
-    isTransfer ? `${account?.name || "?"} → ${tx.toName || accById(tx.toAccountId)?.name || "?"}` : (category?.name || "Sem categoria"),
+    tx.goalId ? `${isIncome ? "retirado de" : "guardado em"} ${goal?.name || "meta"}`
+      : isTransfer ? `${account?.name || "?"} → ${tx.toName || accById(tx.toAccountId)?.name || "?"}`
+      : (category?.name || "Sem categoria"),
     card ? card.name : account?.name,
-    !isTransfer && tx.method ? methodLabel(tx.method) : null,
+    !isTransfer && !tx.goalId && tx.method ? methodLabel(tx.method) : null,
     tx.installment ? `${tx.installment.index}/${tx.installment.of}` : null,
     tx.recurringId ? "recorrente" : null,
   ].filter(Boolean);
 
+  const avatarBg = tx.goalId || isTransfer ? "var(--info-soft)" : alpha(category?.color || "#64748B", 0.16);
+  const avatar = tx.goalId ? `<span style="color:var(--info)">${icon("piggy", 17)}</span>`
+    : isTransfer ? `<span style="color:var(--info)">${icon("swap", 17)}</span>`
+    : (category?.emoji || "📦");
+
   return `<button class="list-row is-button" data-tx="${esc(tx.id)}">
-    <span class="avatar-icon" style="background:${isTransfer ? "var(--info-soft)" : alpha(category?.color || "#64748B", 0.16)}">
-      ${isTransfer ? `<span style="color:var(--info)">${icon("swap", 17)}</span>` : (category?.emoji || "📦")}
-    </span>
+    <span class="avatar-icon" style="background:${avatarBg}">${avatar}</span>
     <span class="grow" style="min-width:0">
       <span class="list-title truncate" style="display:block">${esc(tx.description || category?.name || "Lançamento")}</span>
       <span class="list-meta">
@@ -3373,7 +3425,7 @@ function txRow(tx, { showDate = false, compact = false } = {}) {
       </span>
     </span>
     <span style="text-align:right;flex:none">
-      <span class="list-amount num" style="color:${color};display:block">${isIncome ? "+" : isTransfer && !external ? "" : "−"}${esc(money(tx.amount))}</span>
+      <span class="list-amount num" style="color:${color};display:block">${tx.goalId || (isTransfer && !external) ? "" : isIncome ? "+" : "−"}${esc(money(tx.amount))}</span>
       ${!tx.paid ? `<span class="badge ${late ? "badge-neg" : "badge-warn"}" style="margin-top:3px">${late ? "atrasado" : t("pending")}</span>` : (compact ? "" : "")}
     </span>
   </button>`;
@@ -3390,7 +3442,9 @@ function txListByDay(list, { emptyText = "Nenhum lançamento no período." } = {
     groups.get(tx.date).push(tx);
   }
   return [...groups.entries()].map(([date, items]) => {
-    const net = sum(items, (tx) => (tx.type === "income" ? tx.amount : isInternalTransfer(tx) ? 0 : -tx.amount));
+    // o total do dia mede patrimônio: o que só mudou de bolso (transferência
+    // entre contas suas, dinheiro guardado numa meta) não entra na soma
+    const net = sum(items, (tx) => (isNeutral(tx) ? 0 : signedAmount(tx)));
     return `<div class="day-head">
         <span>${esc(dateLabel(date, { weekday: true }))} <span class="faint" style="font-weight:500">· ${esc(relativeDay(date))}</span></span>
         <span class="num ${net >= 0 ? "pos" : "neg"}">${esc(money(net, { sign: true }))}</span>
@@ -4470,7 +4524,10 @@ function pageDashboard() {
       })}
       ${kpiCard({
         label: t("leftover"), value: show(money(summary.balance)), iconName: summary.balance >= 0 ? "wallet" : "alert", tone: balanceTone,
-        sub: `<span class="${balanceTone}">${esc(pctText(Math.max(0, summary.savingsRate), 1))}</span><span class="faint">da renda guardada</span>`,
+        sub: summary.netSaved > 0
+          ? `<span class="${balanceTone}">${esc(pctText(Math.max(0, summary.savingsRate), 1))}</span>`
+            + `<span class="faint">da renda · ${esc(show(moneyShort(summary.netSaved)))} em metas</span>`
+          : `<span class="${balanceTone}">${esc(pctText(Math.max(0, summary.savingsRate), 1))}</span><span class="faint">da renda sobrou</span>`,
         spark: sparkline(series.map((m) => m.balance), { color: `var(--${summary.balance >= 0 ? "income" : "expense"})` }),
       })}
       ${kpiCard({
@@ -4607,7 +4664,7 @@ function pageDashboard() {
 
   const dayTotals = {};
   for (const tx of txOfMonth(month)) {
-    if (tx.type !== "expense") continue;
+    if (!isOutflow(tx)) continue;
     dayTotals[tx.date] = round2((dayTotals[tx.date] || 0) + tx.amount);
   }
   const heatCard = sectionCard("Calendário de gastos",
@@ -4696,8 +4753,8 @@ function pageTransactions() {
     return true;
   }).sort((a, b) => (a.date === b.date ? (b.createdAt || "").localeCompare(a.createdAt || "") : b.date.localeCompare(a.date)));
 
-  const income = sum(filtered.filter((tx) => tx.type === "income"), (tx) => tx.amount);
-  const expense = sum(filtered.filter((tx) => tx.type === "expense"), (tx) => tx.amount);
+  const income = sum(filtered.filter(isInflow), (tx) => tx.amount);
+  const expense = sum(filtered.filter(isOutflow), (tx) => tx.amount);
   const activeFilters = ["type", "categoryId", "accountId", "cardId", "status", "method"].filter((k) => filters[k] && filters[k] !== "all").length;
 
   return `
@@ -5100,7 +5157,7 @@ function pageBudgets() {
     .map((c) => {
       const history = [1, 2, 3].map((i) => {
         const list = txOfMonth(addMonths(month, -i));
-        return sum(list.filter((tx) => tx.type === "expense" && tx.categoryId === c.id), (tx) => tx.amount);
+        return sum(list.filter((tx) => isOutflow(tx) && tx.categoryId === c.id), (tx) => tx.amount);
       }).filter((v) => v > 0);
       return { category: c, average: history.length ? round2(sum(history) / history.length) : 0 };
     })
@@ -5334,7 +5391,7 @@ function pageReports() {
   const worst = [...withData].sort((a, b) => a.balance - b.balance)[0];
 
   // ranking dos maiores gastos individuais
-  const biggest = list.filter((tx) => tx.type === "expense").sort((a, b) => b.amount - a.amount).slice(0, 8);
+  const biggest = list.filter(isOutflow).sort((a, b) => b.amount - a.amount).slice(0, 8);
 
   // comparação categoria a categoria: período atual x anterior
   const prevFrom = `${addMonths(month, -(months * 2 - 1))}-01`;
