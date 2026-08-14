@@ -933,8 +933,8 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(var(--cal
 const APP = {
   name: "Gasto Esperto",
   tagline: "seu dinheiro com ideia boa",
-  version: "1.2.0",
-  build: "802618c370bf",
+  version: "1.3.0",
+  build: "737d0a7cb19f",
   ns: "gastoesperto",
 };
 
@@ -5951,8 +5951,8 @@ function pageSettings() {
           <span class="kpi-icon" style="background:var(--accent-soft);color:var(--accent);width:38px;height:38px">${icon("refresh", 19)}</span>
           <div style="min-width:0">
             <div class="f-14 w-700">Versão do aplicativo</div>
-            <div class="f-12 muted mt-4">
-              ${esc(APP.version)} · build <code style="letter-spacing:.04em">${esc(APP.build)}</code>
+            <div class="f-12 muted mt-4" id="buildInfo">
+              ${esc(APP.version)} · instalada <code style="letter-spacing:.04em">${esc(APP.build)}</code>
             </div>
           </div>
         </div>
@@ -6161,6 +6161,9 @@ pageHandlers.settings = (root) => {
   });
   delegate(root, "click", "[data-action='check-update']", () => checkForUpdate(true));
   delegate(root, "click", "[data-action='force-update']", () => forceUpdate());
+  // abrir os ajustes já responde "estou atualizado?" sem precisar clicar
+  paintBuildInfo();
+  findUpdate().then(({ stale }) => { paintBuildInfo(); if (stale) showUpdateBanner(swRegistration); });
   delegate(root, "click", "[data-action='install']", () => promptInstall());
   delegate(root, "click", "[data-action='share']", async () => {
     const url = location.href.split("#")[0];
@@ -7018,85 +7021,181 @@ window.matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", (
    -------------------------------------------------------------------------- */
 let swRegistration = null;
 let deferredInstall = null;
+/** Build que está publicado no servidor, quando conseguimos descobrir. */
+let serverBuild = null;
+
+/**
+ * Pergunta ao servidor qual build está publicado.
+ *
+ * Existe porque confiar no ciclo de vida do service worker não bastava: se a
+ * versão nova terminava de instalar depois que o app fechava, ela ficava em
+ * `waiting` para sempre — o evento `updatefound` já tinha passado e nada mais
+ * olhava para lá. O app abria em cima de uma atualização pronta sem nunca
+ * avisar. Esta sonda não depende de evento nenhum: compara dois textos.
+ *
+ * A query com o horário é o que garante resposta fresca mesmo através de um
+ * service worker antigo, que não conhece a regra de não cachear version.json:
+ * uma URL inédita nunca casa com nada no cache e vai para a rede.
+ */
+async function fetchServerBuild() {
+  try {
+    const response = await fetch(`./version.json?t=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) return null;
+    const info = await response.json();
+    return typeof info?.build === "string" ? info.build : null;
+  } catch {
+    return null; // offline, ou publicação antiga sem version.json
+  }
+}
+
+/** Há versão nova? Consulta o servidor e, como reforço, o service worker. */
+async function findUpdate() {
+  const published = await fetchServerBuild();
+  if (published) serverBuild = published;
+  try { await swRegistration?.update(); } catch {}
+  const stale = !!published && published !== APP.build;
+  return { published, stale, waiting: !!swRegistration?.waiting };
+}
 
 function setupUpdates() {
-  if (!("serviceWorker" in navigator) || location.protocol === "file:") return;
   // dentro de um iframe (visualizadores incorporados) não existe sw.js ao lado
   // do documento: tentar registrar só geraria erro de console sem ganho nenhum
-  if (window.top !== window.self) return;
+  const embedded = window.top !== window.self;
+  // testar o valor, e não `"serviceWorker" in navigator`: navegadores em modo
+  // restrito mantêm a propriedade e entregam undefined, e aí a checagem passa
+  // e o `.register` logo abaixo estoura antes do app terminar de abrir.
+  const canRegister = !!navigator.serviceWorker && location.protocol !== "file:" && !embedded;
 
-  navigator.serviceWorker.register("./sw.js").then((registration) => {
-    swRegistration = registration;
+  if (canRegister) {
+    navigator.serviceWorker.register("./sw.js").then((registration) => {
+      swRegistration = registration;
 
-    registration.addEventListener("updatefound", () => {
-      const installing = registration.installing;
-      if (!installing) return;
-      installing.addEventListener("statechange", () => {
-        // já existe um SW controlando: a nova versão está pronta para assumir
-        if (installing.state === "installed" && navigator.serviceWorker.controller) {
-          showUpdateBanner(registration);
-        }
+      registration.addEventListener("updatefound", () => {
+        const installing = registration.installing;
+        if (!installing) return;
+        installing.addEventListener("statechange", () => {
+          // já existe um SW controlando: a nova versão está pronta para assumir
+          if (installing.state === "installed" && navigator.serviceWorker.controller) {
+            showUpdateBanner(registration);
+          }
+        });
       });
-    });
 
-    // procura versão nova ao abrir e a cada 30 minutos
-    registration.update().catch(() => {});
-    setInterval(() => registration.update().catch(() => {}), 30 * 60 * 1000);
-  }).catch(() => {});
+      // uma versão que terminou de instalar na visita anterior já está aqui
+      if (registration.waiting) showUpdateBanner(registration);
+
+      registration.update().catch(() => {});
+    }).catch(() => {});
+
+    let reloading = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloading) return;
+      reloading = true;
+      location.reload();
+    });
+  }
+
+  // A sonda roda mesmo sem service worker: aberto por arquivo local ou em
+  // navegador sem suporte, o aviso de versão nova continua aparecendo.
+  const sweep = async () => {
+    const { stale } = await findUpdate();
+    if (stale) showUpdateBanner(swRegistration);
+  };
+  setTimeout(sweep, 1500);
+  setInterval(sweep, 15 * 60 * 1000);
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
-      swRegistration?.update().catch(() => {});
+      sweep();
       refreshOnNewDay();
     }
-  });
-
-  let reloading = false;
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (reloading) return;
-    reloading = true;
-    location.reload();
   });
 }
 
 function showUpdateBanner(registration) {
   if ($("#updateBanner")) return;
+  const build = serverBuild ? ` (build ${serverBuild.slice(0, 6)})` : "";
   const banner = el("div", { class: "update-banner", id: "updateBanner" });
-  banner.innerHTML = `<span style="color:var(--accent)">${icon("sparkle", 17)}</span><span>Nova versão disponível</span>`;
+  banner.innerHTML = `<span style="color:var(--accent)">${icon("sparkle", 17)}</span>`
+    + `<span>Nova versão disponível${esc(build)}</span>`;
   const apply = el("button", { class: "btn btn-primary btn-sm", text: "Atualizar" });
   const later = el("button", { class: "btn btn-ghost btn-icon btn-sm", html: icon("x", 15), "aria-label": "Depois" });
   apply.addEventListener("click", () => {
-    commitNow();
-    registration.waiting?.postMessage({ type: "SKIP_WAITING" });
     apply.disabled = true;
     apply.textContent = "Atualizando…";
-    setTimeout(() => location.reload(), 1200);
+    applyUpdate(registration);
   });
   later.addEventListener("click", () => banner.remove());
   banner.append(apply, later);
   document.body.append(banner);
 }
 
-async function checkForUpdate(verbose = false) {
-  const status = $("#swStatus");
-  if (!swRegistration) {
-    if (verbose) toast("Atualização automática indisponível neste modo de abertura.", "info", 5000);
-    if (status) status.textContent = "Rodando sem cache offline (arquivo local ou navegador sem suporte).";
+/**
+ * Troca para a versão nova, custe o que custar.
+ *
+ * O caminho educado é pedir ao service worker em espera que assuma. Ele falha
+ * em silêncio quando não há ninguém esperando — a versão nova está no servidor
+ * mas o SW travou, ou nem existe SW. Por isso há prazo: se em 1,8 s o controle
+ * não mudou, cai no caminho bruto, que apaga cache e recarrega ignorando tudo.
+ */
+async function applyUpdate(registration) {
+  commitNow();
+  const reg = registration || swRegistration;
+  if (reg?.waiting) {
+    reg.waiting.postMessage({ type: "SKIP_WAITING" });
+    // o controllerchange recarrega sozinho; isto é a rede de segurança
+    setTimeout(() => { if (!document.hidden) hardReload(); }, 1800);
     return;
   }
-  if (status) status.textContent = "Procurando…";
+  hardReload();
+}
+
+/** Descarta cache e service worker e recarrega buscando do servidor. */
+async function hardReload() {
   try {
-    await swRegistration.update();
-    if (swRegistration.waiting) {
-      showUpdateBanner(swRegistration);
-      if (verbose) toast("Nova versão encontrada!", "ok");
-    } else if (verbose) {
-      toast(`Você já está na versão mais recente (build ${APP.build}).`, "info", 5000);
-    }
-    if (status) status.textContent = `Última verificação: agora · versão ${APP.version}`;
-  } catch {
-    if (verbose) toast("Não consegui verificar agora. Tente com internet.", "err");
+    const registrations = await navigator.serviceWorker?.getRegistrations?.() || [];
+    await Promise.all(registrations.map((r) => r.unregister()));
+    const keys = await caches?.keys?.() || [];
+    await Promise.all(keys.map((key) => caches.delete(key)));
+  } catch {}
+  // a query obriga o navegador a ignorar a própria cópia em cache do HTML
+  location.replace(`${location.pathname}?v=${Date.now()}${location.hash}`);
+}
+
+async function checkForUpdate(verbose = false) {
+  const status = $("#swStatus");
+  if (status) status.textContent = "Procurando…";
+
+  const { published, stale, waiting } = await findUpdate();
+  paintBuildInfo();
+
+  if (stale || waiting) {
+    showUpdateBanner(swRegistration);
+    if (verbose) toast("Nova versão encontrada!", "ok");
+  } else if (published) {
+    if (verbose) toast(`Você já está na versão mais recente (build ${APP.build}).`, "info", 5000);
+  } else if (verbose) {
+    // sem version.json não dá para afirmar nada: melhor dizer isso do que mentir
+    toast("Não consegui falar com o servidor. Verifique a internet ou use “Forçar”.", "info", 6000);
   }
+
+  if (status) {
+    status.textContent = published
+      ? `Última verificação: agora · no servidor: build ${published}`
+      : "Última verificação: agora · não consegui ler a versão do servidor.";
+  }
+}
+
+/** Mostra lado a lado o que está instalado e o que está publicado. */
+function paintBuildInfo() {
+  const node = $("#buildInfo");
+  if (!node) return;
+  const same = serverBuild && serverBuild === APP.build;
+  node.innerHTML = `${esc(APP.version)} · instalada <code style="letter-spacing:.04em">${esc(APP.build)}</code>`
+    + (serverBuild
+      ? ` · no servidor <code style="letter-spacing:.04em">${esc(serverBuild)}</code>`
+        + (same ? " ✓" : " — <b style='color:var(--warn,#E8A33D)'>desatualizado</b>")
+      : "");
 }
 
 /**
@@ -7115,14 +7214,7 @@ async function forceUpdate() {
 
   commitNow();
   toast("Limpando cache…", "info");
-  try {
-    const registrations = await navigator.serviceWorker?.getRegistrations?.() || [];
-    await Promise.all(registrations.map((r) => r.unregister()));
-    const keys = await caches?.keys?.() || [];
-    await Promise.all(keys.map((key) => caches.delete(key)));
-  } catch {}
-  // a query obriga o navegador a ignorar a própria cópia em cache do HTML
-  location.replace(`${location.pathname}?v=${Date.now()}${location.hash}`);
+  await hardReload();
 }
 
 /** Recarrega o painel quando o app fica aberto e o dia vira. */
