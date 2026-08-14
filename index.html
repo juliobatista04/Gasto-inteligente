@@ -556,7 +556,14 @@ img { max-width: 100%; }
   display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
   pointer-events: none;
 }
-@media (max-width: 900px) { .toasts { right: 12px; left: 12px; bottom: calc(var(--tabbar-h) + var(--safe-b) + 12px); align-items: stretch; } }
+/* acima do botão flutuante: no celular o aviso ficava exatamente sobre o
+   "+", e como ele captura o toque, o botão morria enquanto o aviso durasse */
+@media (max-width: 900px) {
+  .toasts {
+    right: 12px; left: 12px; align-items: stretch;
+    bottom: calc(var(--tabbar-h) + var(--safe-b) + 80px);
+  }
+}
 .toast {
   display: flex; align-items: center; gap: 10px;
   padding: 11px 14px; border-radius: var(--r-md);
@@ -564,7 +571,8 @@ img { max-width: 100%; }
   box-shadow: var(--shadow-lg);
   font-size: 13px; font-weight: 600;
   animation: toastin .22s cubic-bezier(.2,1.1,.4,1);
-  pointer-events: auto; max-width: 380px;
+  /* aviso é informativo e some sozinho: não deve interceptar toque nenhum */
+  pointer-events: none; max-width: 380px;
 }
 .toast-ok  { border-left: 3px solid var(--income); }
 .toast-err { border-left: 3px solid var(--expense); }
@@ -926,7 +934,7 @@ const APP = {
   name: "Gasto Esperto",
   tagline: "seu dinheiro com ideia boa",
   version: "1.2.0",
-  build: "1632b7259b04",
+  build: "802618c370bf",
   ns: "gastoesperto",
 };
 
@@ -1835,11 +1843,14 @@ const activeAccounts = () => db().accounts.filter((a) => !a.archived);
 const activeCards = () => db().cards.filter((c) => !c.archived);
 const categoriesOf = (kind) => db().categories.filter((c) => !c.archived && (!kind || c.kind === kind));
 
+/** Carimbo de última alteração — usado para decidir quem vence na mesclagem. */
+const stamp = () => new Date().toISOString();
+
 function upsert(collection, record) {
   const list = db()[collection];
   const index = list.findIndex((x) => x.id === record.id);
-  if (index >= 0) list[index] = { ...list[index], ...record };
-  else list.push({ id: uid(collection.slice(0, 3)), ...record });
+  if (index >= 0) list[index] = { ...list[index], ...record, updatedAt: stamp() };
+  else list.push({ id: uid(collection.slice(0, 3)), ...record, updatedAt: stamp() });
   return list[index >= 0 ? index : list.length - 1];
 }
 
@@ -1909,6 +1920,7 @@ function normalizeTx(input) {
     tags: Array.isArray(input.tags) ? input.tags : [],
     notes: String(input.notes || ""),
     createdAt: input.createdAt || new Date().toISOString(),
+    updatedAt: input.updatedAt || new Date().toISOString(),
   };
 }
 
@@ -1919,7 +1931,7 @@ function updateTransaction(id, patch, scope = "one") {
   const groupId = target.installment?.groupId;
 
   if (scope === "one" || !groupId) {
-    Object.assign(target, patch);
+    Object.assign(target, patch, { updatedAt: stamp() });
     if (patch.amount !== undefined) target.amount = round2(Math.abs(patch.amount));
     return;
   }
@@ -1929,7 +1941,7 @@ function updateTransaction(id, patch, scope = "one") {
     : siblings;
   for (const tx of affected) {
     const { amount, date, installments, ...rest } = patch;
-    Object.assign(tx, rest);
+    Object.assign(tx, rest, { updatedAt: stamp() });
     if (amount !== undefined) tx.amount = round2(Math.abs(amount));
   }
 }
@@ -2400,7 +2412,44 @@ function validateBackup(payload) {
   };
 }
 
-/** `mode`: "merge" mantém perfis atuais; "replace" substitui tudo. */
+/**
+ * Junta duas bases do mesmo perfil, registro a registro.
+ *
+ * Une pelos ids: o que existe só de um lado entra, o que existe nos dois é
+ * resolvido pelo carimbo `updatedAt` mais recente. É o que permite lançar no
+ * celular e no computador sem que restaurar um backup apague o trabalho do
+ * outro aparelho — antes disso, restaurar substituía a base inteira.
+ *
+ * Limite honesto: sem registro de exclusões, um item apagado num aparelho
+ * volta ao mesclar com um backup anterior à exclusão. Apagar de novo resolve.
+ */
+function mergeDatabases(current, incoming) {
+  const out = migrate({ ...current });
+  const COLECOES = ["transactions", "accounts", "cards", "categories", "recurring", "budgets", "goals"];
+  const relatorio = { novos: 0, atualizados: 0, mantidos: 0 };
+
+  for (const colecao of COLECOES) {
+    const porId = new Map((out[colecao] || []).map((r) => [r.id, r]));
+    for (const chegando of incoming[colecao] || []) {
+      const atual = porId.get(chegando.id);
+      if (!atual) {
+        porId.set(chegando.id, chegando);
+        relatorio.novos++;
+      } else if ((chegando.updatedAt || "") > (atual.updatedAt || "")) {
+        porId.set(chegando.id, chegando);
+        relatorio.atualizados++;
+      } else {
+        relatorio.mantidos++;
+      }
+    }
+    out[colecao] = [...porId.values()];
+  }
+  // preferências ficam com o aparelho que está recebendo
+  out.profile = { ...incoming.profile, ...current.profile };
+  return { base: out, relatorio };
+}
+
+/** `mode`: "join" mescla registro a registro; "merge" e "replace" substituem. */
 function importBackup(payload, mode = "merge") {
   validateBackup(payload);
   const current = getUsers();
@@ -2413,13 +2462,37 @@ function importBackup(payload, mode = "merge") {
     return { users: incoming.length, mode };
   }
 
+  if (mode === "join") {
+    const merged = [...current];
+    const total = { novos: 0, atualizados: 0, mantidos: 0 };
+    for (const user of incoming) {
+      // casa por id ou por nome: o mesmo perfil em dois aparelhos costuma
+      // ter ids diferentes, já que cada um foi criado localmente
+      const clash = merged.find((u) => u.id === user.id || normalize(u.name) === normalize(user.name));
+      if (!clash) {
+        merged.push(user);
+        store.set(KEYS.data(user.id), migrate(payload.data[user.id] || seedDatabase(user)));
+        continue;
+      }
+      const { base, relatorio } = mergeDatabases(loadDb(clash.id), migrate(payload.data[user.id] || seedDatabase(user)));
+      store.set(KEYS.data(clash.id), base);
+      for (const chave of Object.keys(total)) total[chave] += relatorio[chave];
+    }
+    saveUsers(merged);
+    return { users: incoming.length, mode, ...total };
+  }
+
+  // "merge": substitui os dados do perfil correspondente. O mesmo perfil em
+  // dois aparelhos tem ids diferentes (cada um foi criado localmente), então
+  // o pareamento é por id OU por nome — senão nunca casaria e o resultado
+  // seria um perfil duplicado, que não é o que o botão promete.
   const merged = [...current];
   for (const user of incoming) {
     const clash = merged.find((u) => u.id === user.id || normalize(u.name) === normalize(user.name));
-    const target = clash ? { ...user, id: clash.id === user.id ? user.id : uid("user"), name: clash.id === user.id ? user.name : `${user.name} (importado)` } : user;
-    if (!merged.some((u) => u.id === target.id)) merged.push(target);
-    else Object.assign(merged.find((u) => u.id === target.id), target);
-    store.set(KEYS.data(target.id), migrate(payload.data[user.id] || seedDatabase(target)));
+    const targetId = clash ? clash.id : user.id;
+    if (clash) Object.assign(clash, user, { id: clash.id, name: clash.name });
+    else merged.push(user);
+    store.set(KEYS.data(targetId), migrate(payload.data[user.id] || seedDatabase(user)));
   }
   saveUsers(merged);
   return { users: incoming.length, mode };
@@ -2902,9 +2975,32 @@ function openModal(opts = {}) {
     onClose?.(result);
   }
 
-  closeBtn.addEventListener("click", () => close());
+  // Fechar sem querer apaga tudo o que foi digitado. Guardamos o estado
+  // inicial do formulário e só saímos direto se nada tiver mudado; caso
+  // contrário, pergunta antes. Vale para o toque fora e para o Esc.
+  const snapshot = () => {
+    const form = bodyNode.querySelector("form");
+    return form ? JSON.stringify(readForm(form)) : null;
+  };
+  let inicial = null;
+  setTimeout(() => { inicial = snapshot(); }, 0);
+
+  async function tryClose() {
+    if (inicial !== null && snapshot() !== inicial) {
+      const descartar = await confirmDialog({
+        title: "Descartar o que você preencheu?",
+        message: "Você começou a preencher este formulário. Fechar agora perde o que foi digitado.",
+        confirmLabel: "Descartar", tone: "danger", iconName: "alert",
+      });
+      if (!descartar) return;
+    }
+    close();
+  }
+  entry.tryClose = tryClose;
+
+  closeBtn.addEventListener("click", () => tryClose());
   overlay.addEventListener("mousedown", (event) => {
-    if (event.target === overlay && dismissable) close();
+    if (event.target === overlay && dismissable) tryClose();
   });
 
   // foco inicial no primeiro campo útil, sem roubar foco no mobile
@@ -2919,7 +3015,8 @@ function openModal(opts = {}) {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && modalStack.length) {
     event.preventDefault();
-    modalStack[modalStack.length - 1].close();
+    const top = modalStack[modalStack.length - 1];
+    (top.tryClose || top.close)();
   }
   // trava o foco dentro do modal do topo
   if (event.key === "Tab" && modalStack.length) {
@@ -3008,6 +3105,8 @@ function showPopover(anchor, items) {
     document.addEventListener("pointerdown", onOutside, { once: true });
   }, 0);
   function onOutside(event) {
+    // um ouvinte de um popover já descartado não pode fechar o atual
+    if (openPopover !== node) return;
     if (!node.contains(event.target)) closePopover();
     else document.addEventListener("pointerdown", onOutside, { once: true });
   }
@@ -3177,7 +3276,11 @@ function readForm(root) {
   return out;
 }
 
-/** Marca campos inválidos e devolve true se estiver tudo certo. */
+/**
+ * Marca campos inválidos e devolve true se estiver tudo certo.
+ * Rola até o primeiro erro: num formulário longo o campo problemático
+ * costuma estar fora da tela, e o usuário fica sem saber o que faltou.
+ */
 function validate(root, rules) {
   let ok = true;
   $$(".form-error", root).forEach((n) => n.remove());
@@ -3192,7 +3295,12 @@ function validate(root, rules) {
     const target = node.type === "hidden" ? node.parentElement : node;
     (target.closest(".field") || target.parentElement).append(el("div", { class: "form-error", text: message }));
   }
-  if (!ok) root.querySelector(".input-invalid")?.focus();
+  const first = root.querySelector(".input-invalid");
+  if (first) {
+    const target = first.type === "hidden" ? first.parentElement : first;
+    target.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (!isTouch()) first.focus({ preventScroll: true });
+  }
   return ok;
 }
 
@@ -3427,7 +3535,7 @@ function openTransactionModal(existing = null, defaults = {}) {
   const accountOptions = activeAccounts().map((a) => ({ value: a.id, label: a.name }));
   const cardOptions = activeCards().map((c) => ({ value: c.id, label: c.name }));
 
-  const body = el("form", { class: "col gap-16", id: "txForm", autocomplete: "off" });
+  const body = el("form", { class: "col gap-16", id: "txForm", novalidate: true, autocomplete: "off" });
   const footer = el("div", { class: "row gap-8", style: { width: "100%", justifyContent: "space-between" } });
 
   const render = (type) => {
@@ -3758,7 +3866,7 @@ function openAccountModal(existing = null, { onCreated = null } = {}) {
     name: "", type: "checking", bankId: "", color: PALETTE[0],
     openingBalance: 0, openingDate: `${thisMonth()}-01`, archived: false,
   };
-  const body = el("form", { class: "col gap-16", id: "accForm" });
+  const body = el("form", { class: "col gap-16", id: "accForm", novalidate: true });
   body.innerHTML = `
     ${field("Banco", bankPicker("bankId", account.bankId), { span: true })}
     <div class="form-grid">
@@ -3835,7 +3943,7 @@ function openCardModal(existing = null, { onCreated = null } = {}) {
     name: "", brand: "Visa", bankId: "", color: "#4F46E5", limit: 0,
     closingDay: 1, dueDay: 10, accountId: activeAccounts()[0]?.id || "", archived: false,
   };
-  const body = el("form", { class: "col gap-16", id: "cardForm" });
+  const body = el("form", { class: "col gap-16", id: "cardForm", novalidate: true });
   const dayOptions = Array.from({ length: 31 }, (_, i) => ({ value: i + 1, label: `Dia ${i + 1}` }));
 
   body.innerHTML = `
@@ -3951,7 +4059,7 @@ function creditCardVisual(card) {
    -------------------------------------------------------------------------- */
 function openCategoryModal(existing = null, kind = "expense", { onCreated = null } = {}) {
   const category = existing || { name: "", kind, emoji: "📦", color: PALETTE[0], essential: false, archived: false };
-  const body = el("form", { class: "col gap-16", id: "catForm" });
+  const body = el("form", { class: "col gap-16", id: "catForm", novalidate: true });
   body.innerHTML = `
     ${segInput("kind", [{ value: "expense", label: t("expense") }, { value: "income", label: t("income") }], category.kind)}
     ${field("Nome", textInput("name", category.name, { placeholder: "Ex.: Mercado", required: true, maxlength: 30 }))}
@@ -4020,7 +4128,7 @@ function openBudgetModal(existing = null) {
     .filter((c) => existing?.categoryId === c.id || !used.has(c.id))
     .map((c) => ({ value: c.id, label: `${c.emoji} ${c.name}` }));
 
-  const body = el("form", { class: "col gap-16", id: "budForm" });
+  const body = el("form", { class: "col gap-16", id: "budForm", novalidate: true });
   body.innerHTML = `
     ${options.length ? field(t("category"), selectInput("categoryId", options, budget.categoryId, { placeholder: "Escolha…", required: true }))
       : `<div class="card card-pad-sm f-13 muted">Todas as categorias já têm orçamento. Edite um existente ou crie outra categoria.</div>`}
@@ -4078,7 +4186,7 @@ function openBudgetModal(existing = null) {
    -------------------------------------------------------------------------- */
 function openGoalModal(existing = null) {
   const goal = existing || { name: "", target: "", deadline: "", color: PALETTE[1], emoji: "🎯", accountId: "" };
-  const body = el("form", { class: "col gap-16", id: "goalForm" });
+  const body = el("form", { class: "col gap-16", id: "goalForm", novalidate: true });
   body.innerHTML = `
     <div class="form-grid">
       ${field("Nome da meta", textInput("name", goal.name, { placeholder: "Ex.: Reserva de emergência", required: true, maxlength: 40 }), { span: true })}
@@ -4143,7 +4251,7 @@ function openGoalModal(existing = null) {
 function openGoalMoveModal(goal, direction = "deposit") {
   const isDeposit = direction === "deposit";
   const progress = goalProgress(goal.id);
-  const body = el("form", { class: "col gap-16", id: "moveForm" });
+  const body = el("form", { class: "col gap-16", id: "moveForm", novalidate: true });
   body.innerHTML = `
     <div class="card card-pad-sm row gap-12" style="background:var(--surface-2)">
       <span class="avatar-icon" style="background:${alpha(goal.color, 0.18)};font-size:17px">${esc(goal.emoji)}</span>
@@ -4204,7 +4312,7 @@ function openRecurringModal(existing = null) {
     endDate: "", active: true, autoPay: true, notes: "",
   };
 
-  const body = el("form", { class: "col gap-16", id: "recForm" });
+  const body = el("form", { class: "col gap-16", id: "recForm", novalidate: true });
   const render = (type) => {
     const cats = categoriesOf(type === "income" ? "income" : "expense");
     body.innerHTML = `
@@ -4670,7 +4778,7 @@ pageHandlers.transactions = (root) => {
 
 function openFiltersModal() {
   const filters = state.filters;
-  const body = el("form", { class: "col gap-16", id: "filtForm" });
+  const body = el("form", { class: "col gap-16", id: "filtForm", novalidate: true });
   body.innerHTML = `
     ${field("Tipo", segInput("type", [
       { value: "all", label: t("all") }, { value: "expense", label: t("expense") },
@@ -5662,17 +5770,40 @@ function handleJsonImport(text) {
         <div class="row-between"><span class="muted f-12">Lançamentos</span><b class="num">${info.transactions}</b></div>
         <div class="row-between"><span class="muted f-12">Data do backup</span><b class="f-12">${esc(info.exportedAt ? dateLabel(toKey(new Date(info.exportedAt)), { year: true }) : "desconhecida")}</b></div>
       </div>
-      <p class="f-13 muted" style="line-height:1.6">Como você quer restaurar?</p>
+      <div class="col gap-10 f-12" style="line-height:1.55">
+        <div class="row gap-8" style="align-items:flex-start">
+          <span style="color:var(--accent);flex:none;margin-top:1px">${icon("check", 14)}</span>
+          <span><b>Juntar</b> soma os lançamentos dos dois lados. O que existe só no
+          arquivo entra, o que existe só aqui fica, e o que foi editado nos dois
+          vence pela alteração mais recente. É o jeito seguro de usar dois aparelhos.</span>
+        </div>
+        <div class="row gap-8" style="align-items:flex-start">
+          <span style="color:var(--warn);flex:none;margin-top:1px">${icon("alert", 14)}</span>
+          <span><b>Substituir</b> apaga o que está neste aparelho e deixa exatamente
+          o conteúdo do arquivo. Use só quando quiser descartar o que há aqui.</span>
+        </div>
+      </div>
     </div>`;
 
-  const footer = el("div", { class: "row gap-8", style: { width: "100%", justifyContent: "flex-end" } });
-  const merge = el("button", { class: "btn", text: "Adicionar aos meus perfis" });
+  const footer = el("div", { class: "row gap-8 wrap", style: { width: "100%", justifyContent: "flex-end" } });
+  const join = el("button", { class: "btn btn-primary", text: "Juntar com o que já tenho" });
+  const merge = el("button", { class: "btn", text: "Substituir este perfil" });
   const replace = el("button", { class: "btn btn-danger", text: "Substituir tudo" });
-  footer.append(merge, replace);
+  footer.append(replace, merge, join);
 
   const modal = openModal({ title: "Restaurar backup", iconName: "upload", size: "sm", body, footer });
 
   const run = async (mode) => {
+    if (mode === "merge") {
+      const okSub = await confirmDialog({
+        title: "Substituir este perfil?",
+        message: "Os lançamentos deste aparelho serão trocados pelos do arquivo."
+          + "<br><br>Se você lançou algo aqui depois desse backup, <b>vai perder</b>."
+          + " Para não perder nada, use <b>Juntar</b>.",
+        confirmLabel: "Substituir", tone: "danger", iconName: "alert",
+      });
+      if (!okSub) return;
+    }
     if (mode === "replace") {
       const ok = await confirmDialog({
         title: "Substituir tudo?",
@@ -5684,12 +5815,15 @@ function handleJsonImport(text) {
     try {
       const result = importBackup(payload, mode);
       modal.close();
-      toast(`${result.users} perfil(is) restaurado(s)`);
-      setTimeout(() => location.reload(), 900);
+      toast(mode === "join"
+        ? `${result.novos} novo(s), ${result.atualizados} atualizado(s), ${result.mantidos} mantido(s)`
+        : `${result.users} perfil(is) restaurado(s)`, "ok", 6000);
+      setTimeout(() => location.reload(), 1400);
     } catch (error) {
       toast(error.message, "err", 6000);
     }
   };
+  join.addEventListener("click", () => run("join"));
   merge.addEventListener("click", () => run("merge"));
   replace.addEventListener("click", () => run("replace"));
 }
@@ -5705,7 +5839,7 @@ function handleCsvImport(text) {
   };
   const columnOptions = parsed.headers.map((h, i) => ({ value: String(i), label: `${i + 1}. ${h || "(sem título)"}` }));
 
-  const body = el("form", { class: "col gap-16", id: "csvForm" });
+  const body = el("form", { class: "col gap-16", id: "csvForm", novalidate: true });
   body.innerHTML = `
     <div class="card card-pad-sm f-12 muted">
       ${parsed.rows.length} linha(s) encontradas · separador <b>"${esc(parsed.sep === "\t" ? "tab" : parsed.sep)}"</b>
@@ -6038,7 +6172,7 @@ pageHandlers.settings = (root) => {
 };
 
 function openRenameModal() {
-  const body = el("form", { class: "col gap-12", id: "renameForm" });
+  const body = el("form", { class: "col gap-12", id: "renameForm", novalidate: true });
   body.innerHTML = field("Como quer ser chamado?", textInput("name", db().profile.displayName || state.user.name, { required: true, maxlength: 40 }));
   const footer = el("div", { class: "row gap-8", style: { width: "100%", justifyContent: "flex-end" } }, [
     el("button", { type: "button", class: "btn", text: t("cancel"), onclick: () => modal.close() }),
@@ -6064,7 +6198,7 @@ function openRenameModal() {
 }
 
 function openChangePinModal() {
-  const body = el("form", { class: "col gap-12", id: "pinForm" });
+  const body = el("form", { class: "col gap-12", id: "pinForm", novalidate: true });
   body.innerHTML = `
     ${field("PIN atual", textInput("current", "", { type: "password", inputmode: "numeric", maxlength: 8, required: true, autocomplete: "current-password" }))}
     ${field("Novo PIN", textInput("next", "", { type: "password", inputmode: "numeric", maxlength: 8, required: true, autocomplete: "new-password" }), { hint: "4 a 8 dígitos" })}
@@ -6205,7 +6339,7 @@ function showAuthStep(step, payload = {}) {
       ${users.length ? backButton("choose") : ""}
       <h2 class="display f-24 mb-4">Criar perfil</h2>
       <p class="f-13 muted mb-20">Escolha um nome e um PIN de 4 a 8 dígitos.</p>
-      <form id="regForm" class="col gap-14">
+      <form id="regForm" class="col gap-14" novalidate>
         ${field("Seu nome", textInput("name", "", { placeholder: "Ex.: Júlio", required: true, maxlength: 40, autocomplete: "name" }))}
         ${field("PIN de acesso", textInput("pin", "", { type: "password", inputmode: "numeric", maxlength: 8, required: true, autocomplete: "new-password", placeholder: "••••" }))}
         ${field("Repita o PIN", textInput("confirm", "", { type: "password", inputmode: "numeric", maxlength: 8, required: true, autocomplete: "new-password", placeholder: "••••" }))}
@@ -6703,9 +6837,16 @@ function render() {
 
     const page = $("#page");
     const scroll = window.scrollY;
-    page.innerHTML = navItem(state.page).page();
-    pageHandlers[state.page]?.(page);
-    bindPickers(page);
+
+    // Cada render usa um container novo. Os handlers de página registram
+    // listeners com delegação no container que recebem; se o container fosse
+    // o mesmo sempre, cada redesenho somaria mais um listener e um clique
+    // passaria a disparar várias vezes — foi o que quebrava os menus "⋮".
+    const view = el("div", { class: "page-view" });
+    view.innerHTML = navItem(state.page).page();
+    page.replaceChildren(view);
+    pageHandlers[state.page]?.(view);
+    bindPickers(view);
     // mantém a posição ao redesenhar depois de uma edição
     if (state.keepScroll) { window.scrollTo(0, scroll); state.keepScroll = false; }
 

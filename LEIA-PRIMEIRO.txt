@@ -1,47 +1,31 @@
-SUBIR ESTES 5 ARQUIVOS — build 1632b7259b04
-=====================================================
+Gasto Esperto — build 802618c370bf
+============================
 
-O que está publicado hoje no seu site: build 59035aa4683f (v1.2.0)
-O que está nesta pasta:                build 1632b7259b04 (v1.3.0)
+CORRIGIDO
+  - Formulário acusava "Preencha este campo" apontando para o lugar
+    errado. Agora a mensagem aparece embaixo do campo certo, em
+    português claro, e a tela rola até ele.
+  - "Editar" no menu ⋮ não abria nada. Era um acúmulo de eventos a
+    cada redesenho da tela; corrigido na raiz.
+  - O botão "+" ficava morto por 3 segundos depois de cada ação: o
+    aviso de confirmação cobria ele e engolia o toque.
 
-Confira a qualquer momento abrindo, no GitHub, o arquivo sw.js e
-olhando a linha 15. Ela mostra o build que está no ar.
+NOVO
+  - Restaurar backup agora tem "Juntar com o que já tenho": soma os
+    lançamentos dos dois aparelhos em vez de substituir. É o que
+    permite usar celular e computador sem perder nada.
+  - Fechar um formulário preenchido sem querer pergunta antes de
+    descartar.
 
-PASSOS
-------
-1. github.com/juliobatista04/Gasto-inteligente
-2. "Add file" > "Upload files"
-3. Arraste OS 5 ARQUIVOS desta pasta (não a pasta, os arquivos):
-     index.html
-     manifest.webmanifest
-     sw.js
-     icon.svg
-     gasto-esperto.html
-4. Escreva "build 1632b7259b04" > "Commit changes"
+VERIFICADO
+  Auditoria automática de 40+ campos: conta, cartão, categoria,
+  orçamento, recorrência e lançamento parcelado — preenche, salva,
+  relê do banco e compara. Tudo passando.
 
-O QUE VAI ACONTECER DESSA VEZ
------------------------------
-A versão que está no ar (v1.2.0) já tem o mecanismo de atualização
-funcionando. Então, minutos depois de subir, o app deve mostrar
-sozinho a faixa "Nova versão disponível" com um botão "Atualizar".
+COMO ATUALIZAR
+  1. github.com/juliobatista04/Gasto-inteligente
+  2. "Add file" > "Upload files"
+  3. Arraste os 5 arquivos desta pasta por cima dos antigos
+  4. Commit changes
 
-Se não mostrar em 5 minutos, abra assim para forçar:
-
-    https://juliobatista04.github.io/Gasto-inteligente/?v=3
-
-DEPOIS DE ATUALIZAR
--------------------
-O botão de atualizar passa a ficar em três lugares visíveis:
-  - Configurações, PRIMEIRO cartão da tela
-  - Menu do perfil (avatar na barra de cima)
-  - Celular: aba "Mais"
-
-CONFERIR: no rodapé da tela de entrada deve aparecer
-
-    build 1632b7259b04
-
-LIMPEZA OPCIONAL
-----------------
-No repositório dá para apagar, se quiser: a pasta "site",
-gasto-esperto.bundle, LEIA-ME.txt e ATUALIZAR.txt. Não atrapalham,
-mas também não fazem falta — o site usa só os 5 arquivos acima.
+  Confira no rodapé da tela de entrada: build 802618c370bf
